@@ -337,7 +337,7 @@ class ClassifierTrainer(Trainer):
         predictions = torch.argmax(y_pred, dim=1)
 
         num_correct = (predictions == y).sum().item()
-        print("Num correcot: ", num_correct)
+
         return BatchResult(loss.item(), num_correct)
 
     def test_batch(self, batch) -> BatchResult:
