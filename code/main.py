@@ -31,7 +31,7 @@ def get_args():
     parser.add_argument('--batch-size', default=64, type=int, help='Size of each batch')
     parser.add_argument('--latent-dim', default=128, type=int, help='encoding dimension')
     parser.add_argument('--device', default='cuda' if torch.cuda.is_available() else 'cpu', type=str, help='Default device to use')
-    parser.add_argument('--mnist', action='store_true', default=True,
+    parser.add_argument('--mnist', action='store_true', default=False,
                         help='Whether to use MNIST (True) or CIFAR10 (False) data')
     parser.add_argument('--self-supervised', action='store_true', default=False,
                         help='Whether train self-supervised with reconstruction objective, or jointly with classifier for classification objective.')
@@ -300,7 +300,7 @@ class Classifier(nn.Module):
 
         modules = []
         modules.append(nn.Linear(in_features=128, out_features=128, bias=True))
-        # modules.append(nn.BatchNorm1d(128))
+        modules.append(nn.BatchNorm1d(128))
         modules.append(nn.ReLU())
         modules.append(nn.Dropout(0.2))
         modules.append(nn.Linear(in_features=128, out_features=128, bias=True))
@@ -338,7 +338,7 @@ class ClassifierTrainer(Trainer):
         predictions = torch.argmax(y_pred, dim=-1)
         accuracy = (predictions == y).sum().item()
 
-        return BatchResult(loss.item(), accuracy / 64)
+        return BatchResult(loss.item(), accuracy / y.shape[0])
 
     def test_batch(self, batch) -> BatchResult:
         x, y = batch
