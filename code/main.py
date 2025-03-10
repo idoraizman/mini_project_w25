@@ -572,7 +572,7 @@ class CifarDecoderCNN(nn.Module):
         modules.append(nn.ReLU())
         modules.append(nn.Dropout(0.2))
 
-        modules.append(nn.ConvTranspose2d(32, 3, kernel_size=3))
+        modules.append(nn.ConvTranspose2d(32, 3, kernel_size=3, padding=1))
         # ========================
 
         self.cnn = nn.Sequential(*modules)
