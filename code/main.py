@@ -494,17 +494,27 @@ if __name__ == "__main__":
     test_dl = torch.utils.data.DataLoader(
         test_dataset, batch_size=args.batch_size, shuffle=True, num_workers=1
     )
-    #this is just for the example. Simple flattening of the image is probably not the best idea                                        
-    encoder_model = MnistEncoderCNN(device=args.device).to(args.device)
-    decoder_model = MnistDecoderCNN(device=args.device).to(args.device)
-    mnist_ae = MNIST_AE(encoder_model, decoder_model)
+
+    mnist_encoder_model = MnistEncoderCNN(device=args.device).to(args.device)
+    mnist_decoder_model = MnistDecoderCNN(device=args.device).to(args.device)
+    mnist_ae = MNIST_AE(mnist_encoder_model, mnist_decoder_model)
 
     loss_fn = nn.L1Loss()
     optimizer = torch.optim.Adam(mnist_ae.parameters(), lr=10**-3, betas=(0.9, 0.999))
 
     mnist_trainer = AETrainer(model=mnist_ae, loss_fn=loss_fn, optimizer=optimizer, device=args.device)
 
-    res = mnist_trainer.fit(dl_train=train_dl, dl_test=test_dl, num_epochs=100, early_stopping=5, print_every=1)
+    checkpoint_file = 'mnist_ae'
+
+    if os.path.isfile(f'{checkpoint_file}.pt'):
+        print(f'*** Loading final checkpoint file {checkpoint_file} instead of training')
+
+    else:
+        res = mnist_trainer.fit(dl_train=train_dl, dl_test=test_dl, num_epochs=100, early_stopping=5, print_every=1, checkpoints='mnist_ae')
+
+    # Plot images from best model
+    saved_state = torch.load(f'{checkpoint_file}.pt', map_location=args.device)
+    mnist_ae.load_state_dict(saved_state['model_state'])
 
     num_samples = 5
     random_indices = np.random.choice(len(test_dataset), num_samples)
@@ -521,6 +531,20 @@ if __name__ == "__main__":
     # saving images
     plt.savefig('reconstructions.png')
     plt.show()
+
+    # interpolation
+    def interpolate(a, b, steps):
+        return torch.stack([a + (b - a) * (i / (steps - 1)) for i in range(steps)])
+
+    a = mnist_encoder_model(samples[0].unsqueeze(0))
+    b = mnist_encoder_model(samples[1].unsqueeze(0))
+    inter = interpolate(a, b, 10)
+    reconstructions = mnist_decoder_model(inter)
+    reconstructions = reconstructions.detach().cpu()
+    fig, axes = plt.subplots(1, 10, figsize=(20, 4))
+    for i in range(10):
+        axes[i].imshow(reconstructions[i][0], cmap='gray')
+    plt.savefig('interpolation.png')
 
 
 
