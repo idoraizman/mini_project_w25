@@ -303,7 +303,8 @@ class Classifier(nn.Module):
         return self.classifier(x)
 
     def predict(self, x):
-        return torch.argmax(self.forward(x))
+        return torch.argmax(self.forward(x), dim=1)
+
 
 class ClassifierTrainer(Trainer):
     def train_batch(self, batch) -> BatchResult:
@@ -384,15 +385,6 @@ class MnistEncoderCNN(nn.Module):
         self.device = device
         modules = []
 
-        # TODO:
-        #  Implement a CNN. Save the layers in the modules list.
-        #  The input shape is an image batch: (N, in_channels, H_in, W_in).
-        #  The output shape should be (N, out_channels, H_out, W_out).
-        #  You can assume H_in, W_in >= 64.
-        #  Architecture is up to you, but it's recommended to use at
-        #  least 3 conv layers. You can use any Conv layer parameters,
-        #  use pooling or only strides, use any activation functions,
-        #  use BN or Dropout, etc.
         # ====== YOUR CODE: ======
         modules.append(nn.Conv2d(1, 32, kernel_size=3))
         modules.append(nn.BatchNorm2d(32))
@@ -425,14 +417,7 @@ class MnistDecoderCNN(nn.Module):
         self.device = device
         modules = []
 
-        # TODO:
-        #  Implement the "mirror" CNN of the encoder.
-        #  For example, instead of Conv layers use transposed convolutions,
-        #  instead of pooling do unpooling (if relevant) and so on.
-        #  The architecture does not have to exactly mirror the encoder
-        #  (although you can), however the important thing is that the
-        #  output should be a batch of images, with same dimensions as the
-        #  inputs to the Encoder were.
+
         # ====== YOUR CODE: ======
         modules.append(nn.Linear(in_features=128, out_features=6400, bias=True, device=self.device))
         modules.append(nn.BatchNorm1d(6400))
@@ -459,7 +444,7 @@ class MnistDecoderCNN(nn.Module):
         # Tanh to scale to [-1, 1] (same dynamic range as original images).
         return torch.tanh(self.cnn(h))
 
-class MNIST_AE(nn.Module):
+class AE(nn.Module):
     def __init__(self, features_encoder, features_decoder):
         """
         :param features_encoder: Instance of an encoder the extracts features
@@ -510,17 +495,104 @@ class MNIST_AE(nn.Module):
         return self.decode(h)
 
 
+class CifarEncoderCNN(nn.Module):
+    def __init__(self, device):
+        super().__init__()
+        self.device = device
+        modules = []
+
+        # ====== YOUR CODE: ======
+        modules.append(nn.Conv2d(3, 32, kernel_size=3, padding=1))
+        modules.append(nn.BatchNorm2d(32))
+        modules.append(nn.PReLU())
+        modules.append(nn.Dropout(0.4))
+
+        modules.append(nn.Conv2d(32, 64, kernel_size=3, stride=2, padding=1))
+        modules.append(nn.BatchNorm2d(64))
+        modules.append(nn.PReLU())
+        modules.append(nn.Dropout(0.4))
+
+        modules.append(nn.Conv2d(64, 128, kernel_size=3, stride=2, padding=1))
+        modules.append(nn.BatchNorm2d(128))
+        modules.append(nn.PReLU())
+        modules.append(nn.Dropout(0.4))
+
+        modules.append(nn.Conv2d(128, 256, kernel_size=3, padding=1))
+        modules.append(nn.BatchNorm2d(256))
+        modules.append(nn.PReLU())
+        modules.append(nn.Dropout(0.4))
+
+
+        modules.append(nn.Flatten())
+        modules.append(nn.Linear(in_features=16384, out_features=128, bias=True, device=self.device))
+
+        # ========================
+        self.cnn = nn.Sequential(*modules)
+
+    def forward(self, x):
+        return self.cnn(x)
+
+class CifarDecoderCNN(nn.Module):
+    def __init__(self, device):
+        super().__init__()
+        self.device = device
+        modules = []
+
+
+        # ====== YOUR CODE: ======
+        modules.append(nn.Linear(in_features=128, out_features=16384, bias=True, device=self.device))
+        modules.append(nn.BatchNorm1d(16384))
+        modules.append(nn.PReLU())
+        modules.append(nn.Dropout(0.4))
+        modules.append(nn.Unflatten(1, (256, 8, 8)))
+
+        modules.append(nn.ConvTranspose2d(256, 128, kernel_size=3, padding=1))
+        modules.append(nn.BatchNorm2d(128))
+        modules.append(nn.ReLU())
+        modules.append(nn.Dropout(0.4))
+
+        modules.append(nn.ConvTranspose2d(128, 64, kernel_size=3, stride=2, output_padding=1, padding=1))
+        modules.append(nn.BatchNorm2d(64))
+        modules.append(nn.ReLU())
+        modules.append(nn.Dropout(0.4))
+
+        modules.append(nn.ConvTranspose2d(64, 32, kernel_size=3, stride=2, output_padding=1, padding=1))
+        modules.append(nn.BatchNorm2d(32))
+        modules.append(nn.ReLU())
+        modules.append(nn.Dropout(0.4))
+
+        modules.append(nn.ConvTranspose2d(32, 3, kernel_size=3))
+        # ========================
+
+        self.cnn = nn.Sequential(*modules)
+
+    def forward(self, h):
+        # Tanh to scale to [-1, 1] (same dynamic range as original images).
+        return torch.tanh(self.cnn(h))
+
+
+
 
 
 if __name__ == "__main__":
-    transform = transforms.Compose([
-        transforms.ToTensor(),
-        # transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])  #one possible convenient normalization. You don't have to use it.
 
-    ])
 
     args = get_args()
     freeze_seeds(args.seed)
+
+    if args.mnist:
+        transform = transforms.Compose([
+            transforms.ToTensor(),
+            transforms.Normalize((0.5,), (0.5,))
+        ])
+    else:
+        transform = transforms.Compose([
+            transforms.ToTensor(),
+            transforms.Normalize(mean=[0.5, 0.5, 0.5],
+                                 std=[0.5, 0.5, 0.5])
+            # one possible convenient normalization. You don't have to use it.
+
+        ])
 
     print("Device:", args.device)
 
@@ -551,33 +623,33 @@ if __name__ == "__main__":
         test_dataset, batch_size=args.batch_size, shuffle=True, num_workers=1
     )
 
-    mnist_encoder_model = MnistEncoderCNN(device=args.device).to(args.device)
-    mnist_decoder_model = MnistDecoderCNN(device=args.device).to(args.device)
-    mnist_ae = MNIST_AE(mnist_encoder_model, mnist_decoder_model)
+    encoder_model = MnistEncoderCNN(device=args.device).to(args.device) if args.mnist else CifarEncoderCNN(device=args.device).to(args.device)
+    decoder_model = MnistDecoderCNN(device=args.device).to(args.device) if args.mnist else CifarDecoderCNN(device=args.device).to(args.device)
+    ae = AE(encoder_model, decoder_model)
 
     loss_fn = nn.L1Loss()
-    optimizer = torch.optim.Adam(mnist_ae.parameters(), lr=10**-3, betas=(0.9, 0.999))
+    optimizer = torch.optim.Adam(ae.parameters(), lr=10 ** -3, betas=(0.9, 0.999))
 
-    mnist_trainer = AETrainer(model=mnist_ae, loss_fn=loss_fn, optimizer=optimizer, device=args.device)
+    trainer = AETrainer(model=ae, loss_fn=loss_fn, optimizer=optimizer, device=args.device)
 
-    checkpoint_file = 'mnist_ae'
+    checkpoint_file = 'mnist_ae' if args.mnist else 'cifar_ae'
 
     if os.path.isfile(f'{checkpoint_file}.pt'):
         print(f'*** Loading final checkpoint file {checkpoint_file} instead of training')
 
     else:
-        res = mnist_trainer.fit(dl_train=train_dl, dl_test=test_dl, num_epochs=100, early_stopping=10, print_every=1, checkpoints='mnist_ae')
+        res = trainer.fit(dl_train=train_dl, dl_test=test_dl, num_epochs=100, early_stopping=10, print_every=1, checkpoints='mnist_ae')
 
     # Plot images from best model
     saved_state = torch.load(f'{checkpoint_file}.pt', map_location=args.device)
-    mnist_ae.load_state_dict(saved_state['model_state'])
+    ae.load_state_dict(saved_state['model_state'])
 
     num_samples = 5
     random_indices = np.random.choice(len(test_dataset), num_samples)
     samples = [test_dataset[i][0] for i in random_indices]
     samples = torch.stack(samples)
     samples = samples.to(args.device)
-    reconstructions = mnist_ae(samples)
+    reconstructions = ae(samples)
     samples = samples.detach().cpu()
     reconstructions = reconstructions.detach().cpu()
     fig, axes = plt.subplots(2, num_samples, figsize=(20, 4))
@@ -585,29 +657,30 @@ if __name__ == "__main__":
         axes[0, i].imshow(samples[i][0], cmap='gray')
         axes[1, i].imshow(reconstructions[i][0], cmap='gray')
     # saving images
-    plt.savefig('reconstructions.png')
+    plt.savefig('mnist_reconstructions.png' if args.mnist else 'cifar_reconstructions.png')
     plt.show()
 
     # interpolation
     def interpolate(a, b, steps):
         return torch.stack([a + (b - a) * (i / (steps - 1)) for i in range(steps)])
 
-    a = mnist_encoder_model(samples[0].unsqueeze(0))
-    b = mnist_encoder_model(samples[1].unsqueeze(0))
+    a = encoder_model(samples[0].unsqueeze(0))
+    b = encoder_model(samples[1].unsqueeze(0))
     inter = interpolate(a, b, 10).squeeze(1)
-    reconstructions = mnist_decoder_model(inter)
+    reconstructions = decoder_model(inter)
     reconstructions = reconstructions.detach().cpu()
     fig, axes = plt.subplots(1, 10, figsize=(20, 4))
     for i in range(10):
-        axes[i].imshow(reconstructions[i][0], cmap='gray')
-    plt.savefig('interpolation.png')
+        img = reconstructions[i][0] if args.mnist else reconstructions[i].permute(1, 2, 0)
+        axes[i].imshow(img.cpu().detach().numpy(), cmap='gray' if args.mnist else None)
+    plt.savefig('mnist_interpolation.png' if args.mnist else 'cifar_interpolation.png')
 
-    classifier = Classifier(mnist_encoder_model)
+    classifier = Classifier(encoder_model)
     loss_fn = nn.CrossEntropyLoss()
-    optimizer = torch.optim.Adam(classifier.parameters(), lr=10**-3)
+    optimizer = torch.optim.Adam(classifier.parameters(), lr=10**-3, betas=(0.9, 0.999))
     classifier_trainer = ClassifierTrainer(model=classifier, loss_fn=loss_fn, optimizer=optimizer, device=args.device)
 
-    checkpoint_file = "mnist_classifier"
+    checkpoint_file = "mnist_classifier" if args.mnist else "cifar_classifier"
     if os.path.isfile(f'{checkpoint_file}.pt'):
         print(f'*** Loading final checkpoint file {checkpoint_file} instead of training')
     else:
