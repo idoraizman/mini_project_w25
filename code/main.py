@@ -500,4 +500,7 @@ if __name__ == "__main__":
 
     mnist_trainer = AETrainer(model=mnist_ae, loss_fn=loss_fn, optimizer=optimizer, device=args.device)
 
+    res = mnist_trainer.fit(dl_train=train_dl, dl_test=test_dl, num_epochs=200, early_stopping=20, print_every=2)
+
+    print("Result:", res)
 
