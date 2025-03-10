@@ -335,9 +335,10 @@ class ClassifierTrainer(Trainer):
         self.optimizer.step()
         # ========================
         predictions = torch.argmax(y_pred, dim=1)
-        accuracy = (predictions == y).sum().item()
+        print(predictions.shape)
+        num_correct = (predictions == y).sum().item()
 
-        return BatchResult(loss.item(), accuracy / y.shape[0])
+        return BatchResult(loss.item(), num_correct)
 
     def test_batch(self, batch) -> BatchResult:
         x, y = batch
@@ -352,9 +353,9 @@ class ClassifierTrainer(Trainer):
             loss = self.loss_fn(y_pred, y)
             # ========================
             predictions = torch.argmax(y_pred, dim=1)
-            accuracy = (predictions == y).sum().item()
+            num_correct = (predictions == y).sum().item()
 
-        return BatchResult(loss.item(), accuracy/y.shape[0])
+        return BatchResult(loss.item(), num_correct)
 
 
 class AETrainer(Trainer):
@@ -597,11 +598,7 @@ def self_supervised_training(args, train_dl, test_dl, val_dl, train_dataset, tes
     checkpoint_file = 'mnist_ae' if args.mnist else 'cifar_ae'
 
     res = trainer.fit(dl_train=train_dl, dl_test=test_dl, num_epochs=100, early_stopping=10, print_every=1,
-                          checkpoints='mnist_ae')
-
-    # Plot images from best model
-    saved_state = torch.load(f'{checkpoint_file}.pt', map_location=args.device)
-    ae.load_state_dict(saved_state['model_state'])
+                          checkpoints=checkpoint_file)
 
     num_samples = 5
     random_indices = np.random.choice(len(test_dataset), num_samples)
@@ -684,9 +681,6 @@ if __name__ == "__main__":
 
 
     print("Device:", args.device)
-
-    # tuning:
-    args.batch_size = 64
                                            
     if args.mnist:
         train_dataset = datasets.MNIST(root=args.data_path, train=True, download=False, transform=transform)
