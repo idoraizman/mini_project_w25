@@ -351,7 +351,7 @@ class ClassifierTrainer(Trainer):
 
             loss = self.loss_fn(y_pred, y)
             # ========================
-            predictions = torch.argmax(y_pred, dim=-1)
+            predictions = torch.argmax(y_pred, dim=1)
             accuracy = (predictions == y).sum().item()
 
         return BatchResult(loss.item(), accuracy/y.shape[0])
