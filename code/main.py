@@ -288,6 +288,24 @@ class Trainer(abc.ABC):
 
         return EpochResult(losses=losses, accuracy=accuracy)
 
+
+class Classifier(nn.Module):
+    def __init__(self, encoder_model):
+        super().__init__()
+        self.encoder_model = encoder_model
+        self.encoder_model.requires_grad(False)
+        self.classifier = nn.Linear(in_features=128, out_features=10, bias=True)
+
+    def forward(self, x):
+        with torch.no_grad():
+            x = self.encoder_model(x)
+        return self.classifier(x)
+
+    def predict(self, x):
+        return torch.argmax(self.forward(x))
+
+
+
 class AETrainer(Trainer):
     def train_batch(self, batch) -> BatchResult:
         x, _y = batch
@@ -538,7 +556,7 @@ if __name__ == "__main__":
 
     a = mnist_encoder_model(samples[0].unsqueeze(0))
     b = mnist_encoder_model(samples[1].unsqueeze(0))
-    inter = interpolate(a, b, 10)
+    inter = interpolate(a, b, 10).squeeze(1)
     reconstructions = mnist_decoder_model(inter)
     reconstructions = reconstructions.detach().cpu()
     fig, axes = plt.subplots(1, 10, figsize=(20, 4))
