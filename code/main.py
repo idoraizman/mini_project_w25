@@ -311,7 +311,7 @@ class AETrainer(Trainer):
         x = x.to(self.device)  # Image batch (N,C,H,W)
 
         with torch.no_grad():
-            # TODO: Evaluate a VAE on one batch.
+
             # ====== YOUR CODE: ======
             output = self.model(x)
 
@@ -502,7 +502,23 @@ if __name__ == "__main__":
 
     mnist_trainer = AETrainer(model=mnist_ae, loss_fn=loss_fn, optimizer=optimizer, device=args.device)
 
-    res = mnist_trainer.fit(dl_train=train_dl, dl_test=test_dl, num_epochs=200, early_stopping=20, print_every=2)
+    res = mnist_trainer.fit(dl_train=train_dl, dl_test=test_dl, num_epochs=100, early_stopping=5, print_every=1)
 
-    print("Result:", res)
+    num_samples = 5
+    random_indices  = np.random.choice(len(test_dataset), num_samples)
+    samples = [test_dataset[i][0] for i in random_indices]
+    samples = torch.stack(samples)
+    samples = samples.to(args.device)
+    reconstructions = mnist_ae(samples)
+    samples = samples.detach().cpu()
+    reconstructions = reconstructions.detach().cpu()
+    fig, axes = plt.subplots(2, num_samples, figsize=(20, 4))
+    for i in range(num_samples):
+        axes[0, i].imshow(samples[i][0], cmap='gray')
+        axes[1, i].imshow(reconstructions[i][0], cmap='gray')
+    plt.show()
+
+
+
+
 
