@@ -28,7 +28,7 @@ def get_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--seed', default=0, type=int, help='Seed for random number generators')
     parser.add_argument('--data-path', default="/datasets/cv_datasets/data", type=str, help='Path to dataset')
-    parser.add_argument('--batch-size', default=8, type=int, help='Size of each batch')
+    parser.add_argument('--batch-size', default=64, type=int, help='Size of each batch')
     parser.add_argument('--latent-dim', default=128, type=int, help='encoding dimension')
     parser.add_argument('--device', default='cuda' if torch.cuda.is_available() else 'cpu', type=str, help='Default device to use')
     parser.add_argument('--mnist', action='store_true', default=True,
@@ -290,15 +290,20 @@ class Trainer(abc.ABC):
 
 
 class Classifier(nn.Module):
-    def __init__(self, encoder_model):
+    def __init__(self, encoder_model, freeze_encoder=True):
         super().__init__()
+        self.freeze_encoder = freeze_encoder
         self.encoder_model = encoder_model
-        for param in self.encoder_model.parameters():
-            param.requires_grad = False
+        if freeze_encoder:
+            for param in self.encoder_model.parameters():
+                param.requires_grad = False
         self.classifier = nn.Linear(in_features=128, out_features=10, bias=True)
 
     def forward(self, x):
-        with torch.no_grad():
+        if self.freeze_encoder:
+            with torch.no_grad():
+                x = self.encoder_model(x)
+        else:
             x = self.encoder_model(x)
         return self.classifier(x)
 
@@ -451,8 +456,6 @@ class AE(nn.Module):
         from an input.
         :param features_decoder: Instance of a decoder that reconstructs an
         input from it's features.
-        :param in_size: The size of one input (without batch dimension).
-        :param z_dim: The latent space dimension.
         """
         super().__init__()
         self.features_encoder = features_encoder
@@ -571,6 +574,94 @@ class CifarDecoderCNN(nn.Module):
         return torch.tanh(self.cnn(h))
 
 
+def self_supervised_training(args, train_dl, test_dl, val_dl, train_dataset, test_dataset):
+    encoder_model = MnistEncoderCNN(device=args.device).to(args.device) if args.mnist else CifarEncoderCNN(
+        device=args.device).to(args.device)
+    decoder_model = MnistDecoderCNN(device=args.device).to(args.device) if args.mnist else CifarDecoderCNN(
+        device=args.device).to(args.device)
+
+    ae = AE(encoder_model, decoder_model)
+
+    loss_fn = nn.L1Loss()
+    optimizer = torch.optim.Adam(ae.parameters(), lr=10 ** -3, betas=(0.9, 0.999))
+
+    trainer = AETrainer(model=ae, loss_fn=loss_fn, optimizer=optimizer, device=args.device)
+
+    checkpoint_file = 'mnist_ae' if args.mnist else 'cifar_ae'
+
+    if os.path.isfile(f'{checkpoint_file}.pt'):
+        print(f'*** Loading final checkpoint file {checkpoint_file} instead of training')
+
+    else:
+        res = trainer.fit(dl_train=train_dl, dl_test=test_dl, num_epochs=100, early_stopping=10, print_every=1,
+                          checkpoints='mnist_ae')
+
+    # Plot images from best model
+    saved_state = torch.load(f'{checkpoint_file}.pt', map_location=args.device)
+    ae.load_state_dict(saved_state['model_state'])
+
+    num_samples = 5
+    random_indices = np.random.choice(len(test_dataset), num_samples)
+    samples = [test_dataset[i][0] for i in random_indices]
+    samples = torch.stack(samples)
+    samples = samples.to(args.device)
+    reconstructions = ae(samples)
+    samples = samples.detach().cpu()
+    reconstructions = reconstructions.detach().cpu()
+    fig, axes = plt.subplots(2, num_samples, figsize=(20, 4))
+    for i in range(num_samples):
+        axes[0, i].imshow(samples[i][0], cmap='gray')
+        axes[1, i].imshow(reconstructions[i][0], cmap='gray')
+    # saving images
+    plt.savefig('mnist_reconstructions.png' if args.mnist else 'cifar_reconstructions.png')
+    plt.show()
+
+    # interpolation
+    def interpolate(a, b, steps):
+        return torch.stack([a + (b - a) * (i / (steps - 1)) for i in range(steps)])
+
+    a = encoder_model(samples[0].unsqueeze(0))
+    b = encoder_model(samples[1].unsqueeze(0))
+    inter = interpolate(a, b, 10).squeeze(1)
+    reconstructions = decoder_model(inter)
+    reconstructions = reconstructions.detach().cpu()
+    fig, axes = plt.subplots(1, 10, figsize=(20, 4))
+    for i in range(10):
+        img = reconstructions[i][0] if args.mnist else reconstructions[i].permute(1, 2, 0)
+        axes[i].imshow(img.cpu().detach().numpy(), cmap='gray' if args.mnist else None)
+    plt.savefig('mnist_interpolation.png' if args.mnist else 'cifar_interpolation.png')
+
+    classifier = Classifier(encoder_model)
+    loss_fn = nn.CrossEntropyLoss()
+    optimizer = torch.optim.Adam(classifier.parameters(), lr=10 ** -3, betas=(0.9, 0.999))
+    classifier_trainer = ClassifierTrainer(model=classifier, loss_fn=loss_fn, optimizer=optimizer,
+                                           device=args.device)
+
+    checkpoint_file = "mnist_classifier" if args.mnist else "cifar_classifier"
+    if os.path.isfile(f'{checkpoint_file}.pt'):
+        print(f'*** Loading final checkpoint file {checkpoint_file} instead of training')
+    else:
+        res = classifier_trainer.fit(dl_train=train_dl, dl_test=test_dl, num_epochs=100, early_stopping=10,
+                                     print_every=1, checkpoints=checkpoint_file)
+
+def supervised_training(args, train_dl, test_dl, val_dl, train_dataset, test_dataset):
+    encoder_model = MnistEncoderCNN(device=args.device).to(args.device) if args.mnist else CifarEncoderCNN(
+        device=args.device).to(args.device)
+    classifier = Classifier(encoder_model, freeze_encoder=False)
+
+    loss_fn = nn.CrossEntropyLoss()
+    optimizer = torch.optim.Adam(classifier.parameters(), lr=10 ** -3, betas=(0.9, 0.999))
+
+    trainer = ClassifierTrainer(model=classifier, loss_fn=loss_fn, optimizer=optimizer, device=args.device)
+
+    checkpoint_file = 'mnist_classifier_supervised' if args.mnist else 'cifar_classifier_supervised'
+
+    if os.path.isfile(f'{checkpoint_file}.pt'):
+        print(f'*** Loading final checkpoint file {checkpoint_file} instead of training')
+
+    else:
+        res = trainer.fit(dl_train=train_dl, dl_test=test_dl, num_epochs=100, early_stopping=10, print_every=1,
+                          checkpoints=checkpoint_file)
 
 
 
@@ -623,69 +714,12 @@ if __name__ == "__main__":
         test_dataset, batch_size=args.batch_size, shuffle=True, num_workers=1
     )
 
-    encoder_model = MnistEncoderCNN(device=args.device).to(args.device) if args.mnist else CifarEncoderCNN(device=args.device).to(args.device)
-    decoder_model = MnistDecoderCNN(device=args.device).to(args.device) if args.mnist else CifarDecoderCNN(device=args.device).to(args.device)
-    ae = AE(encoder_model, decoder_model)
-
-    loss_fn = nn.L1Loss()
-    optimizer = torch.optim.Adam(ae.parameters(), lr=10 ** -3, betas=(0.9, 0.999))
-
-    trainer = AETrainer(model=ae, loss_fn=loss_fn, optimizer=optimizer, device=args.device)
-
-    checkpoint_file = 'mnist_ae' if args.mnist else 'cifar_ae'
-
-    if os.path.isfile(f'{checkpoint_file}.pt'):
-        print(f'*** Loading final checkpoint file {checkpoint_file} instead of training')
-
+    if args.self_supervised:
+        self_supervised_training(args, train_dl, test_dl, val_dl, train_dataset, test_dataset)
     else:
-        res = trainer.fit(dl_train=train_dl, dl_test=test_dl, num_epochs=100, early_stopping=10, print_every=1, checkpoints='mnist_ae')
+        supervised_training(args, train_dl, test_dl, val_dl, train_dataset, test_dataset)
 
-    # Plot images from best model
-    saved_state = torch.load(f'{checkpoint_file}.pt', map_location=args.device)
-    ae.load_state_dict(saved_state['model_state'])
 
-    num_samples = 5
-    random_indices = np.random.choice(len(test_dataset), num_samples)
-    samples = [test_dataset[i][0] for i in random_indices]
-    samples = torch.stack(samples)
-    samples = samples.to(args.device)
-    reconstructions = ae(samples)
-    samples = samples.detach().cpu()
-    reconstructions = reconstructions.detach().cpu()
-    fig, axes = plt.subplots(2, num_samples, figsize=(20, 4))
-    for i in range(num_samples):
-        axes[0, i].imshow(samples[i][0], cmap='gray')
-        axes[1, i].imshow(reconstructions[i][0], cmap='gray')
-    # saving images
-    plt.savefig('mnist_reconstructions.png' if args.mnist else 'cifar_reconstructions.png')
-    plt.show()
-
-    # interpolation
-    def interpolate(a, b, steps):
-        return torch.stack([a + (b - a) * (i / (steps - 1)) for i in range(steps)])
-
-    a = encoder_model(samples[0].unsqueeze(0))
-    b = encoder_model(samples[1].unsqueeze(0))
-    inter = interpolate(a, b, 10).squeeze(1)
-    reconstructions = decoder_model(inter)
-    reconstructions = reconstructions.detach().cpu()
-    fig, axes = plt.subplots(1, 10, figsize=(20, 4))
-    for i in range(10):
-        img = reconstructions[i][0] if args.mnist else reconstructions[i].permute(1, 2, 0)
-        axes[i].imshow(img.cpu().detach().numpy(), cmap='gray' if args.mnist else None)
-    plt.savefig('mnist_interpolation.png' if args.mnist else 'cifar_interpolation.png')
-
-    classifier = Classifier(encoder_model)
-    loss_fn = nn.CrossEntropyLoss()
-    optimizer = torch.optim.Adam(classifier.parameters(), lr=10**-3, betas=(0.9, 0.999))
-    classifier_trainer = ClassifierTrainer(model=classifier, loss_fn=loss_fn, optimizer=optimizer, device=args.device)
-
-    checkpoint_file = "mnist_classifier" if args.mnist else "cifar_classifier"
-    if os.path.isfile(f'{checkpoint_file}.pt'):
-        print(f'*** Loading final checkpoint file {checkpoint_file} instead of training')
-    else:
-        res = classifier_trainer.fit(dl_train=train_dl, dl_test=test_dl, num_epochs=100, early_stopping=10,
-                                     print_every=1, checkpoints=checkpoint_file)
 
 
 
