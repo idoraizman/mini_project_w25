@@ -322,9 +322,9 @@ class ClassifierTrainer(Trainer):
         self.optimizer.step()
         # ========================
         predictions = torch.argmax(y_pred, dim=-1)
-        accuracy = (predictions == y).mean().item()
+        accuracy = (predictions == y).sum().item()
 
-        return BatchResult(loss.item(), accuracy)
+        return BatchResult(loss.item(), accuracy / y.shape[0])
 
     def test_batch(self, batch) -> BatchResult:
         x, y = batch
