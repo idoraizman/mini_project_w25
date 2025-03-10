@@ -97,6 +97,7 @@ class MnistDecoderCNN(nn.Module):
         print("after flatten")
 
         modules.append(nn.ConvTranspose2d(64, 32, kernel_size=3))
+        print("after first conv")
         modules.append(nn.BatchNorm2d(32))
         modules.append(nn.ReLU())
         modules.append(nn.Dropout(0.4))
