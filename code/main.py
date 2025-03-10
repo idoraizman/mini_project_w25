@@ -293,7 +293,8 @@ class Classifier(nn.Module):
     def __init__(self, encoder_model):
         super().__init__()
         self.encoder_model = encoder_model
-        self.encoder_model.requires_grad(False)
+        for param in self.encoder_model.parameters():
+            param.requires_grad = False
         self.classifier = nn.Linear(in_features=128, out_features=10, bias=True)
 
     def forward(self, x):
