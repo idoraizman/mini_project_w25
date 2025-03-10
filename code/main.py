@@ -465,7 +465,9 @@ if __name__ == "__main__":
 
     args = get_args()
     freeze_seeds(args.seed)
-                
+
+    # tuning:
+    args.batch_size = 64
                                            
     if args.mnist:
         train_dataset = datasets.MNIST(root=args.data_path, train=True, download=False, transform=transform)
