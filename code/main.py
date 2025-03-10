@@ -300,7 +300,7 @@ class Classifier(nn.Module):
 
         modules = []
         modules.append(nn.Linear(in_features=128, out_features=128, bias=True))
-        modules.append(nn.BatchNorm1d(128))
+        # modules.append(nn.BatchNorm1d(128))
         modules.append(nn.ReLU())
         modules.append(nn.Dropout(0.2))
         modules.append(nn.Linear(in_features=128, out_features=128, bias=True))
@@ -641,7 +641,7 @@ def self_supervised_training(args, train_dl, test_dl, val_dl, train_dataset, tes
 
     classifier = Classifier(encoder_model)
     loss_fn = nn.CrossEntropyLoss()
-    optimizer = torch.optim.Adam(classifier.classifier.parameters(), lr=10 ** -1, betas=(0.9, 0.999))
+    optimizer = torch.optim.Adam(classifier.classifier.parameters(), lr=10 ** -4, betas=(0.9, 0.999))
     classifier_trainer = ClassifierTrainer(model=classifier, loss_fn=loss_fn, optimizer=optimizer,
                                            device=args.device)
 
