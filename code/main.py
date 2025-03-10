@@ -338,7 +338,7 @@ class ClassifierTrainer(Trainer):
         predictions = torch.argmax(y_pred, dim=-1)
         accuracy = (predictions == y).sum().item()
 
-        return BatchResult(loss.item(), accuracy / y.shape[0])
+        return BatchResult(loss.item(), accuracy / 64)
 
     def test_batch(self, batch) -> BatchResult:
         x, y = batch
