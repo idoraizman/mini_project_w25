@@ -300,11 +300,11 @@ class Classifier(nn.Module):
         self.classifier = nn.Linear(in_features=128, out_features=10, bias=True)
 
     def forward(self, x):
-        if self.freeze_encoder:
-            with torch.no_grad():
-                x = self.encoder_model(x)
-        else:
-            x = self.encoder_model(x)
+        # if self.freeze_encoder:
+        #     with torch.no_grad():
+        #         x = self.encoder_model(x)
+        # else:
+        x = self.encoder_model(x)
         return self.classifier(x)
 
     def predict(self, x):
