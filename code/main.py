@@ -597,11 +597,7 @@ def self_supervised_training(args, train_dl, test_dl, val_dl, train_dataset, tes
 
     checkpoint_file = 'mnist_ae' if args.mnist else 'cifar_ae'
 
-    if os.path.isfile(f'{checkpoint_file}.pt'):
-        print(f'*** Loading final checkpoint file {checkpoint_file} instead of training')
-
-    else:
-        res = trainer.fit(dl_train=train_dl, dl_test=test_dl, num_epochs=100, early_stopping=10, print_every=1,
+    res = trainer.fit(dl_train=train_dl, dl_test=test_dl, num_epochs=100, early_stopping=10, print_every=1,
                           checkpoints='mnist_ae')
 
     # Plot images from best model
@@ -646,11 +642,9 @@ def self_supervised_training(args, train_dl, test_dl, val_dl, train_dataset, tes
                                            device=args.device)
 
     checkpoint_file = "mnist_classifier" if args.mnist else "cifar_classifier"
-    if os.path.isfile(f'{checkpoint_file}.pt'):
-        print(f'*** Loading final checkpoint file {checkpoint_file} instead of training')
-    else:
-        res = classifier_trainer.fit(dl_train=train_dl, dl_test=test_dl, num_epochs=100, early_stopping=10,
-                                     print_every=1, checkpoints=checkpoint_file)
+
+    res = classifier_trainer.fit(dl_train=train_dl, dl_test=test_dl, num_epochs=100, early_stopping=10,
+                                    print_every=1, checkpoints=checkpoint_file)
 
 def supervised_training(args, train_dl, test_dl, val_dl, train_dataset, test_dataset):
     encoder_model = MnistEncoderCNN(device=args.device).to(args.device) if args.mnist else CifarEncoderCNN(
@@ -664,11 +658,7 @@ def supervised_training(args, train_dl, test_dl, val_dl, train_dataset, test_dat
 
     checkpoint_file = 'mnist_classifier_supervised' if args.mnist else 'cifar_classifier_supervised'
 
-    if os.path.isfile(f'{checkpoint_file}.pt'):
-        print(f'*** Loading final checkpoint file {checkpoint_file} instead of training')
-
-    else:
-        res = trainer.fit(dl_train=train_dl, dl_test=test_dl, num_epochs=100, early_stopping=10, print_every=1,
+    res = trainer.fit(dl_train=train_dl, dl_test=test_dl, num_epochs=100, early_stopping=10, print_every=1,
                           checkpoints=checkpoint_file)
 
 
