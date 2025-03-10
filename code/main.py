@@ -104,7 +104,7 @@ class Trainer(abc.ABC):
             print_every=1,
             post_epoch_fn=None,
             **kw,
-    ) -> FitResult:
+    ):
         """
         Trains the model for multiple epochs with a given training set,
         and calculates validation loss over a given validation set.
@@ -138,6 +138,7 @@ class Trainer(abc.ABC):
                     "ewi", epochs_without_improvement
                 )
                 self.model.load_state_dict(saved_state["model_state"])
+                return
 
         for epoch in range(num_epochs):
             save_checkpoint = False
