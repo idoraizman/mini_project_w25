@@ -88,10 +88,13 @@ class MnistDecoderCNN(nn.Module):
         #  inputs to the Encoder were.
         # ====== YOUR CODE: ======
         modules.append(nn.Linear(in_features=128, out_features=6400, bias=True, device=self.device))
+        print("pre batch norm")
         modules.append(nn.BatchNorm1d(6400))
+        print("after batch norm")
         modules.append(nn.PReLU())
         modules.append(nn.Dropout(0.4))
         modules.append(nn.Unflatten(1, (10, 10, 64)))
+        print("after flatten")
 
         modules.append(nn.ConvTranspose2d(64, 32, kernel_size=3))
         modules.append(nn.BatchNorm2d(32))
