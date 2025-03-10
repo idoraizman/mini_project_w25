@@ -304,6 +304,43 @@ class Classifier(nn.Module):
     def predict(self, x):
         return torch.argmax(self.forward(x))
 
+class ClassifierTrainer(Trainer):
+    def train_batch(self, batch) -> BatchResult:
+        x, y = batch
+        x = x.to(self.device)  # Image batch (N,C,H,W)
+        y = y.to(self.device)  # Label batch (N,)
+
+        # ====== YOUR CODE: ======
+        y_pred = self.model(x)
+
+        loss = self.loss_fn(y_pred, y)
+
+        self.optimizer.zero_grad()
+        loss.backward()
+
+        self.optimizer.step()
+        # ========================
+        predictions = torch.argmax(y_pred, dim=-1)
+        accuracy = (predictions == y).mean().item()
+
+        return BatchResult(loss.item(), accuracy)
+
+    def test_batch(self, batch) -> BatchResult:
+        x, y = batch
+        x = x.to(self.device)  # Image batch (N,C,H,W)
+        y = y.to(self.device)  # Label batch (N,)
+
+        with torch.no_grad():
+
+            # ====== YOUR CODE: ======
+            y_pred = self.model(x)
+
+            loss = self.loss_fn(y_pred, y)
+            # ========================
+            predictions = torch.argmax(y_pred, dim=-1)
+            accuracy = (predictions == y).mean().item()
+
+        return BatchResult(loss.item(), accuracy)
 
 
 class AETrainer(Trainer):
@@ -563,6 +600,21 @@ if __name__ == "__main__":
     for i in range(10):
         axes[i].imshow(reconstructions[i][0], cmap='gray')
     plt.savefig('interpolation.png')
+
+    classifier = Classifier(mnist_encoder_model)
+    loss_fn = nn.CrossEntropyLoss()
+    optimizer = torch.optim.Adam(classifier.parameters(), lr=10**-3)
+    classifier_trainer = ClassifierTrainer(model=classifier, loss_fn=loss_fn, optimizer=optimizer, device=args.device)
+
+    checkpoint_file = "mnist_classifier"
+    if os.path.isfile(f'{checkpoint_file}.pt'):
+        print(f'*** Loading final checkpoint file {checkpoint_file} instead of training')
+    else:
+        res = classifier_trainer.fit(dl_train=train_dl, dl_test=test_dl, num_epochs=100, early_stopping=5,
+                                     print_every=1, checkpoints=checkpoint_file)
+
+
+
 
 
 
