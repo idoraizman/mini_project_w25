@@ -402,17 +402,17 @@ class MnistEncoderCNN(nn.Module):
         modules.append(nn.Conv2d(1, 32, kernel_size=3))
         modules.append(nn.BatchNorm2d(32))
         modules.append(nn.PReLU())
-        modules.append(nn.Dropout(0.4))
+        modules.append(nn.Dropout(0.2))
 
         modules.append(nn.Conv2d(32, 32, kernel_size=3, stride=2))
         modules.append(nn.BatchNorm2d(32))
         modules.append(nn.PReLU())
-        modules.append(nn.Dropout(0.4))
+        modules.append(nn.Dropout(0.2))
 
         modules.append(nn.Conv2d(32, 64, kernel_size=3))
         modules.append(nn.BatchNorm2d(64))
         modules.append(nn.PReLU())
-        modules.append(nn.Dropout(0.4))
+        modules.append(nn.Dropout(0.2))
 
         modules.append(nn.Flatten())
         modules.append(nn.Linear(in_features=6400, out_features=128, bias=True, device=self.device))
@@ -435,18 +435,18 @@ class MnistDecoderCNN(nn.Module):
         modules.append(nn.Linear(in_features=128, out_features=6400, bias=True, device=self.device))
         modules.append(nn.BatchNorm1d(6400))
         modules.append(nn.PReLU())
-        modules.append(nn.Dropout(0.4))
+        modules.append(nn.Dropout(0.2))
         modules.append(nn.Unflatten(1, (64, 10, 10)))
 
         modules.append(nn.ConvTranspose2d(64, 32, kernel_size=3))
         modules.append(nn.BatchNorm2d(32))
         modules.append(nn.ReLU())
-        modules.append(nn.Dropout(0.4))
+        modules.append(nn.Dropout(0.2))
 
         modules.append(nn.ConvTranspose2d(32, 32, kernel_size=3, stride=2, output_padding=1))
         modules.append(nn.BatchNorm2d(32))
         modules.append(nn.ReLU())
-        modules.append(nn.Dropout(0.4))
+        modules.append(nn.Dropout(0.2))
 
         modules.append(nn.ConvTranspose2d(32, 1, kernel_size=3))
         # ========================
@@ -516,22 +516,22 @@ class CifarEncoderCNN(nn.Module):
         modules.append(nn.Conv2d(3, 32, kernel_size=3, padding=1))
         modules.append(nn.BatchNorm2d(32))
         modules.append(nn.PReLU())
-        modules.append(nn.Dropout(0.4))
+        modules.append(nn.Dropout(0.2))
 
         modules.append(nn.Conv2d(32, 64, kernel_size=3, stride=2, padding=1))
         modules.append(nn.BatchNorm2d(64))
         modules.append(nn.PReLU())
-        modules.append(nn.Dropout(0.4))
+        modules.append(nn.Dropout(0.2))
 
         modules.append(nn.Conv2d(64, 128, kernel_size=3, stride=2, padding=1))
         modules.append(nn.BatchNorm2d(128))
         modules.append(nn.PReLU())
-        modules.append(nn.Dropout(0.4))
+        modules.append(nn.Dropout(0.2))
 
         modules.append(nn.Conv2d(128, 256, kernel_size=3, padding=1))
         modules.append(nn.BatchNorm2d(256))
         modules.append(nn.PReLU())
-        modules.append(nn.Dropout(0.4))
+        modules.append(nn.Dropout(0.2))
 
 
         modules.append(nn.Flatten())
@@ -554,23 +554,23 @@ class CifarDecoderCNN(nn.Module):
         modules.append(nn.Linear(in_features=128, out_features=16384, bias=True, device=self.device))
         modules.append(nn.BatchNorm1d(16384))
         modules.append(nn.PReLU())
-        modules.append(nn.Dropout(0.4))
+        modules.append(nn.Dropout(0.2))
         modules.append(nn.Unflatten(1, (256, 8, 8)))
 
         modules.append(nn.ConvTranspose2d(256, 128, kernel_size=3, padding=1))
         modules.append(nn.BatchNorm2d(128))
         modules.append(nn.ReLU())
-        modules.append(nn.Dropout(0.4))
+        modules.append(nn.Dropout(0.2))
 
         modules.append(nn.ConvTranspose2d(128, 64, kernel_size=3, stride=2, output_padding=1, padding=1))
         modules.append(nn.BatchNorm2d(64))
         modules.append(nn.ReLU())
-        modules.append(nn.Dropout(0.4))
+        modules.append(nn.Dropout(0.2))
 
         modules.append(nn.ConvTranspose2d(64, 32, kernel_size=3, stride=2, output_padding=1, padding=1))
         modules.append(nn.BatchNorm2d(32))
         modules.append(nn.ReLU())
-        modules.append(nn.Dropout(0.4))
+        modules.append(nn.Dropout(0.2))
 
         modules.append(nn.ConvTranspose2d(32, 3, kernel_size=3))
         # ========================
