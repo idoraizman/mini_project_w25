@@ -153,5 +153,6 @@ if __name__ == "__main__":
 
     sample = torch.stack([train_dataset[i][0] for i in range(2)]).to(args.device) #This is just for the example - you should use a dataloader
     output = decoder_model(encoder_model(sample))
+    print("Sample shape: ", sample.shape)
     print(output.shape)
 
