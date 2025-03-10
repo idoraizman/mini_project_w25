@@ -147,8 +147,8 @@ if __name__ == "__main__":
         test_dataset, batch_size=args.batch_size, shuffle=True, num_workers=1
     )
     #this is just for the example. Simple flattening of the image is probably not the best idea                                        
-    encoder_model = MnistEncoderCNN(device=args['device']).to(args.device)
-    decoder_model = MnistDecoderCNN(device=args['device']).to(args.device)
+    encoder_model = MnistEncoderCNN(device=args.device).to(args.device)
+    decoder_model = MnistDecoderCNN(device=args.device).to(args.device)
 
     sample = train_dataset[0][0][None].to(args.device) #This is just for the example - you should use a dataloader
     output = decoder_model(encoder_model(sample.flatten()))
