@@ -327,14 +327,14 @@ class ClassifierTrainer(Trainer):
         # ====== YOUR CODE: ======
         y_pred = self.model(x)
         print(y_pred.shape)
-        loss = self.loss_fn(y, y_pred)
+        loss = self.loss_fn(y_pred, y)
 
         self.optimizer.zero_grad()
         loss.backward()
 
         self.optimizer.step()
         # ========================
-        predictions = torch.argmax(y_pred, dim=-1)
+        predictions = torch.argmax(y_pred, dim=1)
         accuracy = (predictions == y).sum().item()
 
         return BatchResult(loss.item(), accuracy / y.shape[0])
