@@ -326,7 +326,7 @@ class ClassifierTrainer(Trainer):
 
         # ====== YOUR CODE: ======
         y_pred = self.model(x)
-        print(y_pred.shape)
+
         loss = self.loss_fn(y_pred, y)
 
         self.optimizer.zero_grad()
