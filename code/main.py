@@ -303,7 +303,7 @@ class Classifier(nn.Module):
         modules.append(nn.BatchNorm1d(128))
         modules.append(nn.ReLU())
         modules.append(nn.Dropout(0.2))
-        modules.append(nn.Linear(in_features=128, out_features=128, bias=True))
+        modules.append(nn.Linear(in_features=128, out_features=10, bias=True))
 
         self.classifier = nn.Sequential(*modules)
 
