@@ -2,6 +2,7 @@ import abc
 
 import torch.nn as nn
 import torch
+import torchvision
 from torchvision import datasets, transforms
 from torch.utils.data import random_split, DataLoader
 
@@ -16,6 +17,7 @@ from pathlib import Path
 from typing import List, NamedTuple, Callable, Any
 import tqdm
 import sys
+import torch.nn.functional as F
 
 
 NUM_CLASSES = 10
@@ -35,6 +37,7 @@ def get_args():
                         help='Whether to use MNIST (True) or CIFAR10 (False) data')
     parser.add_argument('--self-supervised', action='store_true', default=False,
                         help='Whether train self-supervised with reconstruction objective, or jointly with classifier for classification objective.')
+    parser.add_argument('--simclr', action='store_true', default=False)
     return parser.parse_args()
 
 class BatchResult(NamedTuple):
@@ -513,6 +516,7 @@ class CifarEncoderCNN(nn.Module):
         modules = []
 
         # ====== YOUR CODE: ======
+
         modules.append(nn.Conv2d(3, 32, kernel_size=3, padding=1))
         modules.append(nn.BatchNorm2d(32))
         modules.append(nn.PReLU())
@@ -658,6 +662,110 @@ def supervised_training(args, train_dl, test_dl, val_dl, train_dataset, test_dat
                           checkpoints=checkpoint_file)
 
 
+class SimCLRTransform:
+    """
+    Returns two augmented views of the same image.
+    """
+
+    def __init__(self, size=32):
+        self.transform = transforms.Compose([
+            transforms.RandomResizedCrop(size),
+            transforms.RandomHorizontalFlip(),
+            transforms.ColorJitter(brightness=0.8, contrast=0.8, saturation=0.8, hue=0.2),
+            transforms.RandomGrayscale(p=0.2),
+            transforms.ToTensor(),
+            transforms.Normalize((0.5,), (0.5,))
+        ])
+
+    def __call__(self, x):
+        return [self.transform(x), self.transform(x)]
+
+
+# -------------------------------
+# SimCLR Model Definition
+# -------------------------------
+class SimCLR(nn.Module):
+    def __init__(self, hidden_dim=128):
+        """
+        hidden_dim: output dimension of the projection head.
+        """
+        super(SimCLR, self).__init__()
+        # Load a ResNet18 backbone; remove its final fc layer.
+        self.encoder = torchvision.models.resnet50(pretrained=False)
+        self.encoder.fc = nn.Identity()
+
+        # Projection head: a 2-layer MLP (with ReLU in between)
+        self.projection = nn.Sequential(
+            nn.Linear(512, 4 * hidden_dim),
+            nn.ReLU(inplace=True),
+            nn.Linear(4 * hidden_dim, hidden_dim)
+        )
+
+    def forward(self, x):
+        # x: input image batch
+        h = self.encoder(x)  # Feature extraction
+        z = self.projection(h)  # Projection into latent space
+        return z
+
+
+# -------------------------------
+# NT-Xent Loss Function
+# -------------------------------
+def nt_xent_loss(z_i, z_j, temperature=0.5):
+    """
+    Computes the NT-Xent loss for a batch of projections z_i and z_j.
+    Both inputs should be L2 normalized.
+    """
+    batch_size = z_i.size(0)
+    # Concatenate both sets along the batch dimension: [2*B, D]
+    z = torch.cat([z_i, z_j], dim=0)
+    z = F.normalize(z, dim=1)
+
+    # Compute similarity matrix (cosine similarity)
+    similarity_matrix = torch.matmul(z, z.T)
+
+    # Create a mask to filter out self-similarity (diagonal elements)
+    mask = torch.eye(2 * batch_size, device=z.device).bool()
+    similarity_matrix.masked_fill_(mask, -torch.inf)
+
+    # Positive pairs: the (i, i+B) and (i+B, i) elements
+    positives = torch.cat([
+        torch.diag(similarity_matrix, batch_size),
+        torch.diag(similarity_matrix, -batch_size)
+    ])
+
+    # Compute loss for each positive pair
+    numerator = torch.exp(positives / temperature)
+    denominator = torch.sum(torch.exp(similarity_matrix / temperature), dim=1)
+    loss = -torch.log(numerator / denominator)
+    return loss.mean()
+
+class SimCLRTrainer(Trainer):
+    def train_batch(self, batch) -> BatchResult:
+        x_i, x_j = batch
+        x_i = x_i.to(self.device)
+        x_j = x_j.to(self.device)
+
+        # ====== YOUR CODE: ======
+        z_i = self.model(x_i)
+        z_j = self.model(x_j)
+
+        loss = nt_xent_loss(z_i, z_j)
+        self.optimizer.zero_grad()
+        loss.backward()
+        self.optimizer.step()
+        # ========================
+
+        return BatchResult(loss.item(), 0)
+
+def simclr_training(args, train_dl, test_dl, val_dl, train_dataset, test_dataset):
+    simclr = SimCLR(hidden_dim=args.latent_dim)
+    loss_fn = nt_xent_loss
+    optimizer = torch.optim.Adam(simclr.parameters(), lr=10 ** -3, betas=(0.9, 0.999))
+    trainer = SimCLRTrainer(model=simclr, loss_fn=loss_fn, optimizer=optimizer, device=args.device)
+    res = trainer.fit(dl_train=train_dl, dl_test=test_dl, num_epochs=100, early_stopping=10, print_every=1)
+
+
 
 if __name__ == "__main__":
 
@@ -665,7 +773,10 @@ if __name__ == "__main__":
     args = get_args()
     freeze_seeds(args.seed)
 
-    if args.mnist:
+    if args.simclr:
+        size = 28 if args.mnist else 32
+        transform = SimCLRTransform(size=size)
+    elif args.mnist:
         transform = transforms.Compose([
             transforms.ToTensor(),
             # transforms.Normalize((0.5,), (0.5,))
@@ -706,7 +817,9 @@ if __name__ == "__main__":
         test_dataset, batch_size=args.batch_size, shuffle=True, num_workers=1
     )
 
-    if args.self_supervised:
+    if args.simclr:
+        simclr_training(args, train_dl, test_dl, val_dl, train_dataset, test_dataset)
+    elif args.self_supervised:
         self_supervised_training(args, train_dl, test_dl, val_dl, train_dataset, test_dataset)
     else:
         supervised_training(args, train_dl, test_dl, val_dl, train_dataset, test_dataset)
