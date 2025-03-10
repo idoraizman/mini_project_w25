@@ -339,9 +339,9 @@ class ClassifierTrainer(Trainer):
             loss = self.loss_fn(y_pred, y)
             # ========================
             predictions = torch.argmax(y_pred, dim=-1)
-            accuracy = (predictions == y).mean().item()
+            accuracy = (predictions == y).sum().item()
 
-        return BatchResult(loss.item(), accuracy)
+        return BatchResult(loss.item(), accuracy/y.shape[0])
 
 
 class AETrainer(Trainer):
