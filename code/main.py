@@ -1,7 +1,9 @@
+import abc
+
 import torch.nn as nn
 import torch
 from torchvision import datasets, transforms
-from torch.utils.data import random_split
+from torch.utils.data import random_split, DataLoader
 
 import numpy as np
 from matplotlib import pyplot as plt
@@ -9,6 +11,12 @@ from utils import plot_tsne
 import numpy as np
 import random
 import argparse
+import os
+from pathlib import Path
+from typing import List, NamedTuple, Callable, Any
+import tqdm
+import sys
+
 
 NUM_CLASSES = 10
 
@@ -28,6 +36,289 @@ def get_args():
     parser.add_argument('--self-supervised', action='store_true', default=False,
                         help='Whether train self-supervised with reconstruction objective, or jointly with classifier for classification objective.')
     return parser.parse_args()
+
+class BatchResult(NamedTuple):
+    """
+    Represents the result of training for a single batch: the loss
+    and number of correct classifications.
+    """
+
+    loss: float
+    num_correct: int
+
+
+class EpochResult(NamedTuple):
+    """
+    Represents the result of training for a single epoch: the loss per batch
+    and accuracy on the dataset (train or test).
+    """
+
+    losses: List[float]
+    accuracy: float
+
+
+class FitResult(NamedTuple):
+    """
+    Represents the result of fitting a model for multiple epochs given a
+    training and test (or validation) set.
+    The losses are for each batch and the accuracies are per epoch.
+    """
+
+    num_epochs: int
+    train_loss: List[float]
+    train_acc: List[float]
+    test_loss: List[float]
+    test_acc: List[float]
+
+class Trainer(abc.ABC):
+    """
+    A class abstracting the various tasks of training models.
+
+    Provides methods at multiple levels of granularity:
+    - Multiple epochs (fit)
+    - Single epoch (train_epoch/test_epoch)
+    - Single batch (train_batch/test_batch)
+    """
+
+    def __init__(self, model, loss_fn, optimizer, device):
+        """
+        Initialize the trainer.
+        :param model: Instance of the model to train.
+        :param loss_fn: The loss function to evaluate with.
+        :param optimizer: The optimizer to train with.
+        :param device: torch.device to run training on (CPU or GPU).
+        """
+        self.model = model
+        self.loss_fn = loss_fn
+        self.optimizer = optimizer
+        self.device = device
+        model.to(self.device)
+
+    def fit(
+            self,
+            dl_train: DataLoader,
+            dl_test: DataLoader,
+            num_epochs,
+            checkpoints: str = None,
+            early_stopping: int = None,
+            print_every=1,
+            post_epoch_fn=None,
+            **kw,
+    ) -> FitResult:
+        """
+        Trains the model for multiple epochs with a given training set,
+        and calculates validation loss over a given validation set.
+        :param dl_train: Dataloader for the training set.
+        :param dl_test: Dataloader for the test set.
+        :param num_epochs: Number of epochs to train for.
+        :param checkpoints: Whether to save model to file every time the
+            test set accuracy improves. Should be a string containing a
+            filename without extension.
+        :param early_stopping: Whether to stop training early if there is no
+            test loss improvement for this number of epochs.
+        :param print_every: Print progress every this number of epochs.
+        :param post_epoch_fn: A function to call after each epoch completes.
+        :return: A FitResult object containing train and test losses per epoch.
+        """
+        actual_num_epochs = 0
+        train_loss, train_acc, test_loss, test_acc = [], [], [], []
+
+        best_acc = None
+        epochs_without_improvement = 0
+
+        checkpoint_filename = None
+        if checkpoints is not None:
+            checkpoint_filename = f"{checkpoints}.pt"
+            Path(os.path.dirname(checkpoint_filename)).mkdir(exist_ok=True)
+            if os.path.isfile(checkpoint_filename):
+                print(f"*** Loading checkpoint file {checkpoint_filename}")
+                saved_state = torch.load(checkpoint_filename, map_location=self.device)
+                best_acc = saved_state.get("best_acc", best_acc)
+                epochs_without_improvement = saved_state.get(
+                    "ewi", epochs_without_improvement
+                )
+                self.model.load_state_dict(saved_state["model_state"])
+
+        for epoch in range(num_epochs):
+            save_checkpoint = False
+            verbose = False  # pass this to train/test_epoch.
+            if epoch % print_every == 0 or epoch == num_epochs - 1:
+                verbose = True
+            self._print(f"--- EPOCH {epoch + 1}/{num_epochs} ---", verbose)
+
+            # TODO:
+            #  Train & evaluate for one epoch
+            #  - Use the train/test_epoch methods.
+            #  - Save losses and accuracies in the lists above.
+            #  - Implement early stopping. This is a very useful and
+            #    simple regularization technique that is highly recommended.
+            # ====== YOUR CODE: ======
+            train_result = self.train_epoch(dl_train, verbose=verbose)
+            test_result = self.test_epoch(dl_test, verbose=verbose)
+            # print(train_res, test_res)
+            train_loss.append(sum(train_result.losses) / len(train_result.losses))
+            train_acc.append(train_result.accuracy)
+            test_loss.append(sum(test_result.losses) / len(test_result.losses))
+            test_acc.append(test_result.accuracy)
+            if best_acc is None or test_result.accuracy > best_acc:
+                best_acc = test_result.accuracy
+                if checkpoints:
+                    save_checkpoint = True
+                epochs_without_improvement = 0
+            else:
+                epochs_without_improvement += 1
+                if early_stopping is not None and epochs_without_improvement == early_stopping:
+                    break
+            # ========================
+
+            # Save model checkpoint if requested
+            if save_checkpoint and checkpoint_filename is not None:
+                saved_state = dict(
+                    best_acc=best_acc,
+                    ewi=epochs_without_improvement,
+                    model_state=self.model.state_dict(),
+                )
+                torch.save(saved_state, checkpoint_filename)
+                print(
+                    f"*** Saved checkpoint {checkpoint_filename} " f"at epoch {epoch + 1}"
+                )
+
+            if post_epoch_fn:
+                post_epoch_fn(epoch, train_result, test_result, verbose)
+
+        return FitResult(actual_num_epochs, train_loss, train_acc, test_loss, test_acc)
+
+    def train_epoch(self, dl_train: DataLoader, **kw) -> EpochResult:
+        """
+        Train once over a training set (single epoch).
+        :param dl_train: DataLoader for the training set.
+        :param kw: Keyword args supported by _foreach_batch.
+        :return: An EpochResult for the epoch.
+        """
+        self.model.train(True)  # set train mode
+        return self._foreach_batch(dl_train, self.train_batch, **kw)
+
+    def test_epoch(self, dl_test: DataLoader, **kw) -> EpochResult:
+        """
+        Evaluate model once over a test set (single epoch).
+        :param dl_test: DataLoader for the test set.
+        :param kw: Keyword args supported by _foreach_batch.
+        :return: An EpochResult for the epoch.
+        """
+        self.model.train(False)  # set evaluation (test) mode
+        return self._foreach_batch(dl_test, self.test_batch, **kw)
+
+    @abc.abstractmethod
+    def train_batch(self, batch) -> BatchResult:
+        """
+        Runs a single batch forward through the model, calculates loss,
+        preforms back-propagation and uses the optimizer to update weights.
+        :param batch: A single batch of data  from a data loader (might
+            be a tuple of data and labels or anything else depending on
+            the underlying dataset.
+        :return: A BatchResult containing the value of the loss function and
+            the number of correctly classified samples in the batch.
+        """
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def test_batch(self, batch) -> BatchResult:
+        """
+        Runs a single batch forward through the model and calculates loss.
+        :param batch: A single batch of data  from a data loader (might
+            be a tuple of data and labels or anything else depending on
+            the underlying dataset.
+        :return: A BatchResult containing the value of the loss function and
+            the number of correctly classified samples in the batch.
+        """
+        raise NotImplementedError()
+
+    @staticmethod
+    def _print(message, verbose=True):
+        """ Simple wrapper around print to make it conditional """
+        if verbose:
+            print(message)
+
+    @staticmethod
+    def _foreach_batch(
+            dl: DataLoader,
+            forward_fn: Callable[[Any], BatchResult],
+            verbose=True,
+            max_batches=None,
+    ) -> EpochResult:
+        """
+        Evaluates the given forward-function on batches from the given
+        dataloader, and prints progress along the way.
+        """
+        losses = []
+        num_correct = 0
+        num_samples = len(dl.sampler)
+        num_batches = len(dl.batch_sampler)
+
+        if max_batches is not None:
+            if max_batches < num_batches:
+                num_batches = max_batches
+                num_samples = num_batches * dl.batch_size
+
+        if verbose:
+            pbar_file = sys.stdout
+        else:
+            pbar_file = open(os.devnull, "w")
+
+        pbar_name = forward_fn.__name__
+        with tqdm.tqdm(desc=pbar_name, total=num_batches, file=pbar_file) as pbar:
+            dl_iter = iter(dl)
+            for batch_idx in range(num_batches):
+                data = next(dl_iter)
+                batch_res = forward_fn(data)
+
+                pbar.set_description(f"{pbar_name} ({batch_res.loss:.3f})")
+                pbar.update()
+
+                losses.append(batch_res.loss)
+                num_correct += batch_res.num_correct
+
+            avg_loss = sum(losses) / num_batches
+            accuracy = 100.0 * num_correct / num_samples
+            pbar.set_description(
+                f"{pbar_name} "
+                f"(Avg. Loss {avg_loss:.3f}, "
+                f"Accuracy {accuracy:.1f})"
+            )
+
+        return EpochResult(losses=losses, accuracy=accuracy)
+
+class AETrainer(Trainer):
+    def train_batch(self, batch) -> BatchResult:
+        x, _y = batch
+        x = x.to(self.device)  # Image batch (N,C,H,W)
+
+        # ====== YOUR CODE: ======
+        output = self.model(x)
+
+        loss = self.loss_fn(x, output)
+
+        self.optimizer.zero_grad()
+        loss.backward()
+
+        self.optimizer.step()
+        # ========================
+
+        return BatchResult(loss.item(), 1 / loss.item())
+
+    def test_batch(self, batch) -> BatchResult:
+        x, _ = batch
+        x = x.to(self.device)  # Image batch (N,C,H,W)
+
+        with torch.no_grad():
+            # TODO: Evaluate a VAE on one batch.
+            # ====== YOUR CODE: ======
+            output = self.model(x)
+
+            loss = self.loss_fn(x, output)
+            # ========================
+
+        return BatchResult(loss.item(), 1 / loss.item())
 
 
 
@@ -112,6 +403,58 @@ class MnistDecoderCNN(nn.Module):
         # Tanh to scale to [-1, 1] (same dynamic range as original images).
         return torch.tanh(self.cnn(h))
 
+class MNIST_AE(nn.Module):
+    def __init__(self, features_encoder, features_decoder):
+        """
+        :param features_encoder: Instance of an encoder the extracts features
+        from an input.
+        :param features_decoder: Instance of a decoder that reconstructs an
+        input from it's features.
+        :param in_size: The size of one input (without batch dimension).
+        :param z_dim: The latent space dimension.
+        """
+        super().__init__()
+        self.features_encoder = features_encoder
+        self.features_decoder = features_decoder
+
+    def encode(self, x):
+
+        # ====== YOUR CODE: ======
+        h = self.features_encoder(x)
+        # ========================
+
+        return h
+
+    def decode(self, z):
+
+        # ====== YOUR CODE: ======
+        h = self.decode(z)
+        # ========================
+
+        return h
+
+    def sample(self, n):  # TODO: change
+        samples = []
+        device = next(self.parameters()).device
+        with torch.no_grad():
+
+            # ====== YOUR CODE: ======
+            for _ in range(n):
+                sample = torch.randn(size=(1,self.z_dim), device=device)
+                sample_recon = self.decode(sample)
+                samples.append(sample_recon.squeeze(0))
+            # ========================
+
+        # Detach and move to CPU for display purposes
+        samples = [s.detach().cpu() for s in samples]
+        return samples
+
+    def forward(self, x):
+        h = self.encode(x)
+        return self.decode(h)
+
+
+
 
 if __name__ == "__main__":
     transform = transforms.Compose([
@@ -150,9 +493,11 @@ if __name__ == "__main__":
     #this is just for the example. Simple flattening of the image is probably not the best idea                                        
     encoder_model = MnistEncoderCNN(device=args.device).to(args.device)
     decoder_model = MnistDecoderCNN(device=args.device).to(args.device)
+    mnist_ae = MNIST_AE(encoder_model, decoder_model)
 
-    sample = torch.stack([train_dataset[i][0] for i in range(2)]).to(args.device) #This is just for the example - you should use a dataloader
-    output = decoder_model(encoder_model(sample))
-    print("Sample shape: ", sample.shape)
-    print(output.shape)
+    loss_fn = nn.L1Loss()
+    optimizer = torch.optim.Adam(mnist_ae.parameters(), lr=10**-3, betas=(0.9, 0.999))
+
+    mnist_trainer = AETrainer(model=mnist_ae, loss_fn=loss_fn, optimizer=optimizer, device=args.device)
+
 
