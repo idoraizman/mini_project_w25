@@ -466,6 +466,8 @@ if __name__ == "__main__":
     args = get_args()
     freeze_seeds(args.seed)
 
+    print("Device:", args.device)
+
     # tuning:
     args.batch_size = 64
                                            
@@ -505,7 +507,7 @@ if __name__ == "__main__":
     res = mnist_trainer.fit(dl_train=train_dl, dl_test=test_dl, num_epochs=100, early_stopping=5, print_every=1)
 
     num_samples = 5
-    random_indices  = np.random.choice(len(test_dataset), num_samples)
+    random_indices = np.random.choice(len(test_dataset), num_samples)
     samples = [test_dataset[i][0] for i in random_indices]
     samples = torch.stack(samples)
     samples = samples.to(args.device)
@@ -516,6 +518,8 @@ if __name__ == "__main__":
     for i in range(num_samples):
         axes[0, i].imshow(samples[i][0], cmap='gray')
         axes[1, i].imshow(reconstructions[i][0], cmap='gray')
+    # saving images
+    plt.savefig('reconstructions.png')
     plt.show()
 
 
