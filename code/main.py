@@ -566,7 +566,7 @@ if __name__ == "__main__":
         print(f'*** Loading final checkpoint file {checkpoint_file} instead of training')
 
     else:
-        res = mnist_trainer.fit(dl_train=train_dl, dl_test=test_dl, num_epochs=100, early_stopping=5, print_every=1, checkpoints='mnist_ae')
+        res = mnist_trainer.fit(dl_train=train_dl, dl_test=test_dl, num_epochs=100, early_stopping=10, print_every=1, checkpoints='mnist_ae')
 
     # Plot images from best model
     saved_state = torch.load(f'{checkpoint_file}.pt', map_location=args.device)
@@ -611,7 +611,7 @@ if __name__ == "__main__":
     if os.path.isfile(f'{checkpoint_file}.pt'):
         print(f'*** Loading final checkpoint file {checkpoint_file} instead of training')
     else:
-        res = classifier_trainer.fit(dl_train=train_dl, dl_test=test_dl, num_epochs=100, early_stopping=5,
+        res = classifier_trainer.fit(dl_train=train_dl, dl_test=test_dl, num_epochs=100, early_stopping=10,
                                      print_every=1, checkpoints=checkpoint_file)
 
 
