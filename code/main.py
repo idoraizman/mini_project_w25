@@ -151,7 +151,7 @@ if __name__ == "__main__":
     encoder_model = MnistEncoderCNN(device=args.device).to(args.device)
     decoder_model = MnistDecoderCNN(device=args.device).to(args.device)
 
-    sample = train_dataset[0][0][None].to(args.device) #This is just for the example - you should use a dataloader
+    sample = torch.stack([train_dataset[i][0] for i in range(2)]).to(args.device) #This is just for the example - you should use a dataloader
     output = decoder_model(encoder_model(sample))
     print(output.shape)
 
