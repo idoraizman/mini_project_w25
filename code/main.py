@@ -428,7 +428,7 @@ class MNIST_AE(nn.Module):
     def decode(self, z):
 
         # ====== YOUR CODE: ======
-        h = self.decode(z)
+        h = self.features_decoder(z)
         # ========================
 
         return h
