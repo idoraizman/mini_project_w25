@@ -152,6 +152,6 @@ if __name__ == "__main__":
     decoder_model = MnistDecoderCNN(device=args.device).to(args.device)
 
     sample = train_dataset[0][0][None].to(args.device) #This is just for the example - you should use a dataloader
-    output = decoder_model(encoder_model(sample.flatten()))
+    output = decoder_model(encoder_model(sample))
     print(output.shape)
 
