@@ -674,16 +674,17 @@ if __name__ == "__main__":
     if args.mnist:
         transform = transforms.Compose([
             transforms.ToTensor(),
-            transforms.Normalize((0.5,), (0.5,))
+            # transforms.Normalize((0.5,), (0.5,))
         ])
     else:
         transform = transforms.Compose([
             transforms.ToTensor(),
-            transforms.Normalize(mean=[0.5, 0.5, 0.5],
-                                 std=[0.5, 0.5, 0.5])
+            # transforms.Normalize(mean=[0.5, 0.5, 0.5],
+                                 # std=[0.5, 0.5, 0.5])
             # one possible convenient normalization. You don't have to use it.
 
         ])
+
 
     print("Device:", args.device)
 
