@@ -297,14 +297,22 @@ class Classifier(nn.Module):
         if freeze_encoder:
             for param in self.encoder_model.parameters():
                 param.requires_grad = False
-        self.classifier = nn.Linear(in_features=128, out_features=10, bias=True)
+
+        modules = []
+        modules.append(nn.Linear(in_features=128, out_features=128, bias=True))
+        modules.append(nn.BatchNorm1d(10))
+        modules.append(nn.ReLU())
+        modules.append(nn.Dropout(0.2))
+        modules.append(nn.Linear(in_features=128, out_features=128, bias=True))
+
+        self.classifier = nn.Sequential(*modules)
 
     def forward(self, x):
-        # if self.freeze_encoder:
-        #     with torch.no_grad():
-        #         x = self.encoder_model(x)
-        # else:
-        x = self.encoder_model(x)
+        if self.freeze_encoder:
+            with torch.no_grad():
+                x = self.encoder_model(x)
+        else:
+            x = self.encoder_model(x)
         return self.classifier(x)
 
     def predict(self, x):
