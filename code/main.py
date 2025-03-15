@@ -622,8 +622,10 @@ def self_supervised_training(args, train_dl, test_dl, val_dl, train_dataset, tes
 
     fig, axes = plt.subplots(2, num_samples, figsize=(20, 4))
     for i in range(num_samples):
-        axes[0, i].imshow(samples[i][0].permute(1, 2, 0), cmap='gray' if args.mnist else None)
-        axes[1, i].imshow(reconstructions[i][0].permute(1, 2, 0), cmap='gray' if args.mnist else None)
+        sample = samples[i][0] if args.mnist else samples[i].permute(1, 2, 0)
+        sample_reco = reconstructions[i][0] if args.mnist else reconstructions[i].permute(1, 2, 0)
+        axes[0, i].imshow(sample, cmap='gray' if args.mnist else None)
+        axes[1, i].imshow(sample_reco, cmap='gray' if args.mnist else None)
     plt.savefig('mnist_reconstructions.png' if args.mnist else 'cifar_reconstructions.png')
     plt.show()
 
