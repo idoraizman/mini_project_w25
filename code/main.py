@@ -546,7 +546,7 @@ class CifarEncoderCNN(nn.Module):
         self.cnn = nn.Sequential(*modules)
 
     def forward(self, x):
-        return self.cnn(x).to(self.device)
+        return self.cnn(x)
 
 class CifarDecoderCNN(nn.Module):
     def __init__(self, device):
@@ -625,8 +625,8 @@ def self_supervised_training(args, train_dl, test_dl, val_dl, train_dataset, tes
     def interpolate(a, b, steps):
         return torch.stack([a + (b - a) * (i / (steps - 1)) for i in range(steps)])
 
-    a = encoder_model(samples[0].unsqueeze(0))
-    b = encoder_model(samples[1].unsqueeze(0))
+    a = encoder_model(samples[0].unsqueeze(0)).to(args.device)
+    b = encoder_model(samples[1].unsqueeze(0)).to(args.device)
     inter = interpolate(a, b, 10).squeeze(1)
     reconstructions = decoder_model(inter)
     reconstructions = reconstructions.detach().cpu()
