@@ -660,7 +660,7 @@ def self_supervised_training(args, train_dl, test_dl, val_dl, train_dataset, tes
 def supervised_training(args, train_dl, test_dl, val_dl, train_dataset, test_dataset):
     encoder_model = MnistEncoderCNN(device=args.device).to(args.device) if args.mnist else CifarEncoderCNN(
         device=args.device).to(args.device)
-    classifier = Classifier(encoder_model, freeze_encoder=False)
+    classifier = Classifier(encoder_model, freeze_encoder=False).to(args.device)
 
     loss_fn = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(classifier.parameters(), lr=10 ** -3, betas=(0.9, 0.999))
