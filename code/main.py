@@ -605,10 +605,10 @@ def self_supervised_training(args, train_dl, test_dl, val_dl, train_dataset, tes
     res = trainer.fit(dl_train=train_dl, dl_test=test_dl, num_epochs=100, early_stopping=10, print_every=1,
                           checkpoints=checkpoint_file)
 
-    """
+
     num_samples = 5
     random_indices = np.random.choice(len(test_dataset), num_samples)
-    samples = [test_dataset[i][0] for i in random_indices]
+    samples = [test_dataset[i][0].clone() for i in random_indices]
     samples = torch.stack(samples)
     samples = samples.to(args.device)
     reconstructions = ae(samples)
@@ -637,7 +637,7 @@ def self_supervised_training(args, train_dl, test_dl, val_dl, train_dataset, tes
         img = reconstructions[i][0] if args.mnist else reconstructions[i].permute(1, 2, 0)
         axes[i].imshow(img.cpu().detach().numpy(), cmap='gray' if args.mnist else None)
     plt.savefig('mnist_interpolation.png' if args.mnist else 'cifar_interpolation.png')
-    """
+
 
     classifier = Classifier(encoder_model).to(args.device)
     loss_fn = nn.CrossEntropyLoss()
