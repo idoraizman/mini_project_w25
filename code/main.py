@@ -605,39 +605,44 @@ def self_supervised_training(args, train_dl, test_dl, val_dl, train_dataset, tes
     res = trainer.fit(dl_train=train_dl, dl_test=test_dl, num_epochs=100, early_stopping=10, print_every=1,
                           checkpoints=checkpoint_file)
 
-
+    # Visualization section
     num_samples = 5
     random_indices = np.random.choice(len(test_dataset), num_samples)
     samples = [test_dataset[i][0].clone() for i in random_indices]
     samples = torch.stack(samples)
     samples = samples.to(args.device)
     reconstructions = ae(samples)
+
+    # Save GPU versions for interpolation
+    samples_gpu = samples.clone()  # Keep a copy on GPU for interpolation
+
+    # Move to CPU for visualization
     samples = samples.detach().cpu()
     reconstructions = reconstructions.detach().cpu()
+
     fig, axes = plt.subplots(2, num_samples, figsize=(20, 4))
     for i in range(num_samples):
         axes[0, i].imshow(samples[i][0], cmap='gray' if args.mnist else None)
         axes[1, i].imshow(reconstructions[i][0], cmap='gray' if args.mnist else None)
-    # saving images
     plt.savefig('mnist_reconstructions.png' if args.mnist else 'cifar_reconstructions.png')
     plt.show()
-    
 
-    # interpolation
+    # Interpolation
     def interpolate(a, b, steps):
         return torch.stack([a + (b - a) * (i / (steps - 1)) for i in range(steps)])
 
-    a = encoder_model(samples[0].unsqueeze(0)).to(args.device)
-    b = encoder_model(samples[1].unsqueeze(0)).to(args.device)
+    # Use the GPU version of samples
+    a = encoder_model(samples_gpu[0].unsqueeze(0))
+    b = encoder_model(samples_gpu[1].unsqueeze(0))
     inter = interpolate(a, b, 10).squeeze(1)
     reconstructions = decoder_model(inter)
     reconstructions = reconstructions.detach().cpu()
+
     fig, axes = plt.subplots(1, 10, figsize=(20, 4))
     for i in range(10):
         img = reconstructions[i][0] if args.mnist else reconstructions[i].permute(1, 2, 0)
-        axes[i].imshow(img.cpu().detach().numpy(), cmap='gray' if args.mnist else None)
+        axes[i].imshow(img, cmap='gray' if args.mnist else None)
     plt.savefig('mnist_interpolation.png' if args.mnist else 'cifar_interpolation.png')
-
 
     classifier = Classifier(encoder_model).to(args.device)
     loss_fn = nn.CrossEntropyLoss()
