@@ -771,7 +771,7 @@ class SimCLRTrainer(Trainer):
         self.optimizer.step()
         # ========================
 
-        return BatchResult(loss.item(), 0)
+        return BatchResult(loss.item(), 1/loss.item())
 
     def test_batch(self, batch) -> BatchResult:
         x, y = batch
@@ -786,7 +786,7 @@ class SimCLRTrainer(Trainer):
         loss = nt_xent_loss(z_i, z_j)
         # ========================
 
-        return BatchResult(loss.item(), 0)
+        return BatchResult(loss.item(), 1/loss.item())
 
 def simclr_training(args, train_dl, test_dl, val_dl, train_dataset, test_dataset):
     simclr = SimCLR(hidden_dim=args.latent_dim, is_mnist=args.mnist, device=args.device)
