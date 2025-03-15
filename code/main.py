@@ -363,8 +363,9 @@ class ClassifierTrainer(Trainer):
 
 class AETrainer(Trainer):
     def train_batch(self, batch) -> BatchResult:
-        x, _y = batch
+        x, y = batch
         x = x.to(self.device)  # Image batch (N,C,H,W)
+        y = y.to(self.device)  # Label batch (N,)
 
         # ====== YOUR CODE: ======
         output = self.model(x)
@@ -592,7 +593,7 @@ def self_supervised_training(args, train_dl, test_dl, val_dl, train_dataset, tes
     decoder_model = MnistDecoderCNN(device=args.device).to(args.device) if args.mnist else CifarDecoderCNN(
         device=args.device).to(args.device)
 
-    ae = AE(encoder_model, decoder_model)
+    ae = AE(encoder_model, decoder_model).to(args.device)
 
     loss_fn = nn.L1Loss()
     optimizer = torch.optim.Adam(ae.parameters(), lr=10 ** -3, betas=(0.9, 0.999))
@@ -635,7 +636,7 @@ def self_supervised_training(args, train_dl, test_dl, val_dl, train_dataset, tes
         axes[i].imshow(img.cpu().detach().numpy(), cmap='gray' if args.mnist else None)
     plt.savefig('mnist_interpolation.png' if args.mnist else 'cifar_interpolation.png')
 
-    classifier = Classifier(encoder_model)
+    classifier = Classifier(encoder_model).to(args.device)
     loss_fn = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(classifier.classifier.parameters(), lr=10 ** -3, betas=(0.9, 0.999))
     classifier_trainer = ClassifierTrainer(model=classifier, loss_fn=loss_fn, optimizer=optimizer,
