@@ -141,7 +141,7 @@ class Trainer(abc.ABC):
                     "ewi", epochs_without_improvement
                 )
                 self.model.load_state_dict(saved_state["model_state"])
-                #return
+                return
 
         for epoch in range(num_epochs):
             save_checkpoint = False
