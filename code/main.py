@@ -704,9 +704,9 @@ class SimCLR(nn.Module):
 
         # Projection head: a 2-layer MLP (with ReLU in between)
         self.projection = nn.Sequential(
-            nn.Linear(512, 4 * hidden_dim),
+            nn.Linear(512, 4 * hidden_dim, device=self.device),
             nn.ReLU(inplace=True),
-            nn.Linear(4 * hidden_dim, hidden_dim)
+            nn.Linear(4 * hidden_dim, hidden_dim, device=self.device),
         )
 
     def forward(self, x):
