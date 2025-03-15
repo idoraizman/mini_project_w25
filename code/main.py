@@ -545,7 +545,7 @@ class CifarEncoderCNN(nn.Module):
         self.cnn = nn.Sequential(*modules)
 
     def forward(self, x):
-        return self.cnn(x)
+        return self.cnn(x).to(self.device)
 
 class CifarDecoderCNN(nn.Module):
     def __init__(self, device):
@@ -614,8 +614,8 @@ def self_supervised_training(args, train_dl, test_dl, val_dl, train_dataset, tes
     reconstructions = reconstructions.detach().cpu()
     fig, axes = plt.subplots(2, num_samples, figsize=(20, 4))
     for i in range(num_samples):
-        axes[0, i].imshow(samples[i][0], cmap='gray')
-        axes[1, i].imshow(reconstructions[i][0], cmap='gray')
+        axes[0, i].imshow(samples[i][0], cmap='gray' if args.mnist else None)
+        axes[1, i].imshow(reconstructions[i][0], cmap='gray' if args.mnist else None)
     # saving images
     plt.savefig('mnist_reconstructions.png' if args.mnist else 'cifar_reconstructions.png')
     plt.show()
@@ -681,9 +681,6 @@ class SimCLRTransform:
         return [self.transform(x), self.transform(x)]
 
 
-# -------------------------------
-# SimCLR Model Definition
-# -------------------------------
 class SimCLR(nn.Module):
     def __init__(self, hidden_dim=128):
         """
