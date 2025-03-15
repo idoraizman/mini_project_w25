@@ -768,6 +768,20 @@ class SimCLRTrainer(Trainer):
 
         return BatchResult(loss.item(), 0)
 
+    def test_batch(self, batch) -> BatchResult:
+        x_i, x_j = batch
+        x_i = x_i.to(self.device)
+        x_j = x_j.to(self.device)
+
+        # ====== YOUR CODE: ======
+        z_i = self.model(x_i)
+        z_j = self.model(x_j)
+
+        loss = nt_xent_loss(z_i, z_j)
+        # ========================
+
+        return BatchResult(loss.item(), 0)
+
 def simclr_training(args, train_dl, test_dl, val_dl, train_dataset, test_dataset):
     simclr = SimCLR(hidden_dim=args.latent_dim, device=args.device)
     loss_fn = nt_xent_loss
