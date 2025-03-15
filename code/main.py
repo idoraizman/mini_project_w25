@@ -752,9 +752,8 @@ def nt_xent_loss(z_i, z_j, temperature=0.5):
 
 class SimCLRTrainer(Trainer):
     def train_batch(self, batch) -> BatchResult:
-        x_i, x_j = batch
-        print(x_i)
-        print("length: ", len(x_i))
+        x, y = batch
+        x_i, x_j = x
         x_i = x_i.to(self.device)
         x_j = x_j.to(self.device)
 
