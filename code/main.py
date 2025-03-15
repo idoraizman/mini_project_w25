@@ -793,7 +793,8 @@ def simclr_training(args, train_dl, test_dl, val_dl, train_dataset, test_dataset
     loss_fn = nt_xent_loss
     optimizer = torch.optim.Adam(simclr.parameters(), lr=10 ** -3, betas=(0.9, 0.999))
     trainer = SimCLRTrainer(model=simclr, loss_fn=loss_fn, optimizer=optimizer, device=args.device)
-    res = trainer.fit(dl_train=train_dl, dl_test=test_dl, num_epochs=100, early_stopping=10, print_every=1)
+    checkpoint_file = "simclr_mnist" if args.mnist else "simclr_cifar"
+    res = trainer.fit(dl_train=train_dl, dl_test=test_dl, num_epochs=100, early_stopping=10, print_every=1, checkpoints=checkpoint_file)
 
 
 
