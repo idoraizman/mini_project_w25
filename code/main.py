@@ -693,14 +693,16 @@ class SimCLRTransform:
 
 
 class SimCLR(nn.Module):
-    def __init__(self, hidden_dim=128):
+    def __init__(self, device, hidden_dim=128):
         """
         hidden_dim: output dimension of the projection head.
         """
         super(SimCLR, self).__init__()
+        self.device = device
         # Load a ResNet18 backbone; remove its final fc layer.
         self.encoder = torchvision.models.resnet50(pretrained=False)
         self.encoder.fc = nn.Identity()
+
 
         # Projection head: a 2-layer MLP (with ReLU in between)
         self.projection = nn.Sequential(
@@ -767,7 +769,7 @@ class SimCLRTrainer(Trainer):
         return BatchResult(loss.item(), 0)
 
 def simclr_training(args, train_dl, test_dl, val_dl, train_dataset, test_dataset):
-    simclr = SimCLR(hidden_dim=args.latent_dim)
+    simclr = SimCLR(hidden_dim=args.latent_dim, device=args.device)
     loss_fn = nt_xent_loss
     optimizer = torch.optim.Adam(simclr.parameters(), lr=10 ** -3, betas=(0.9, 0.999))
     trainer = SimCLRTrainer(model=simclr, loss_fn=loss_fn, optimizer=optimizer, device=args.device)
