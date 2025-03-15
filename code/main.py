@@ -774,7 +774,8 @@ class SimCLRTrainer(Trainer):
         return BatchResult(loss.item(), 0)
 
     def test_batch(self, batch) -> BatchResult:
-        x_i, x_j = batch
+        x, y = batch
+        x_i, x_j = x
         x_i = x_i.to(self.device)
         x_j = x_j.to(self.device)
 
