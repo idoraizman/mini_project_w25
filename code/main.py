@@ -298,6 +298,7 @@ class Classifier(nn.Module):
         super().__init__()
         self.freeze_encoder = freeze_encoder
         self.encoder_model = encoder_model
+
         if freeze_encoder:
             for param in self.encoder_model.parameters():
                 param.requires_grad = False
@@ -322,8 +323,14 @@ class Classifier(nn.Module):
 
 
 class ClassifierTrainer(Trainer):
+
+    def __init__(self, model, loss_fn, optimizer, device, is_simclr=False):
+        super().__init__(model, loss_fn, optimizer, device)
+        self.is_simclr = is_simclr
     def train_batch(self, batch) -> BatchResult:
         x, y = batch
+        if self.is_simclr:
+            x = x[2]
         x = x.to(self.device)  # Image batch (N,C,H,W)
         y = y.to(self.device)  # Label batch (N,)
 
@@ -345,6 +352,8 @@ class ClassifierTrainer(Trainer):
 
     def test_batch(self, batch) -> BatchResult:
         x, y = batch
+        if self.is_simclr:
+            x = x[2]
         x = x.to(self.device)  # Image batch (N,C,H,W)
         y = y.to(self.device)  # Label batch (N,)
 
@@ -650,7 +659,7 @@ def self_supervised_training(args, train_dl, test_dl, val_dl, train_dataset, tes
     loss_fn = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(classifier.classifier.parameters(), lr=10 ** -3, betas=(0.9, 0.999))
     classifier_trainer = ClassifierTrainer(model=classifier, loss_fn=loss_fn, optimizer=optimizer,
-                                           device=args.device)
+                                           device=args.device, is_simclr=False)
 
     checkpoint_file = "mnist_classifier" if args.mnist else "cifar_classifier"
 
@@ -687,9 +696,11 @@ class SimCLRTransform:
             transforms.ToTensor(),
             transforms.Normalize((0.5,), (0.5,))
         ])
+        self.regular_transform = transforms.Compose([transforms.ToTensor()])
+            # transforms.Normalize((0.5,), (0.5,))
 
     def __call__(self, x):
-        return [self.transform(x), self.transform(x)]
+        return [self.transform(x), self.transform(x), self.regular_transform(x)]
 
 
 class SimCLR(nn.Module):
@@ -757,7 +768,7 @@ def nt_xent_loss(z_i, z_j, temperature=0.5):
 class SimCLRTrainer(Trainer):
     def train_batch(self, batch) -> BatchResult:
         x, y = batch
-        x_i, x_j = x
+        x_i, x_j, _ = x
         x_i = x_i.to(self.device)
         x_j = x_j.to(self.device)
 
@@ -775,7 +786,7 @@ class SimCLRTrainer(Trainer):
 
     def test_batch(self, batch) -> BatchResult:
         x, y = batch
-        x_i, x_j = x
+        x_i, x_j, _ = x
         x_i = x_i.to(self.device)
         x_j = x_j.to(self.device)
 
@@ -800,7 +811,7 @@ def simclr_training(args, train_dl, test_dl, val_dl, train_dataset, test_dataset
     loss_fn = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(classifier.classifier.parameters(), lr=10 ** -3, betas=(0.9, 0.999))
     classifier_trainer = ClassifierTrainer(model=classifier, loss_fn=loss_fn, optimizer=optimizer,
-                                           device=args.device)
+                                           device=args.device, is_simclr=True)
 
     classifier_checkpoint_file = "simclr_mnist_classifier" if args.mnist else "simclr_cifar_classifier"
 
