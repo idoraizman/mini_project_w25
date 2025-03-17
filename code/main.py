@@ -38,6 +38,7 @@ def get_args():
     parser.add_argument('--self-supervised', action='store_true', default=False,
                         help='Whether train self-supervised with reconstruction objective, or jointly with classifier for classification objective.')
     parser.add_argument('--simclr', action='store_true', default=False)
+    parser.add_argument('--val', action='store_true', default=False)
     return parser.parse_args()
 
 class BatchResult(NamedTuple):
@@ -106,6 +107,7 @@ class Trainer(abc.ABC):
             early_stopping: int = None,
             print_every=1,
             post_epoch_fn=None,
+            dl_val: DataLoader=None,
             **kw,
     ):
         """
@@ -158,7 +160,7 @@ class Trainer(abc.ABC):
             #    simple regularization technique that is highly recommended.
             # ====== YOUR CODE: ======
             train_result = self.train_epoch(dl_train, verbose=verbose)
-            test_result = self.test_epoch(dl_test, verbose=verbose)
+            test_result = self.test_epoch(dl_test if dl_val is None else dl_val, verbose=verbose)
             # print(train_res, test_res)
             train_loss.append(sum(train_result.losses) / len(train_result.losses))
             train_acc.append(train_result.accuracy)
@@ -190,7 +192,7 @@ class Trainer(abc.ABC):
             if post_epoch_fn:
                 post_epoch_fn(epoch, train_result, test_result, verbose)
 
-        return FitResult(actual_num_epochs, train_loss, train_acc, test_loss, test_acc)
+        return FitResult(actual_num_epochs, train_loss, train_acc, test_loss, test_acc), best_acc
 
     def train_epoch(self, dl_train: DataLoader, **kw) -> EpochResult:
         """
@@ -406,7 +408,7 @@ class AETrainer(Trainer):
 
 
 class MnistEncoderCNN(nn.Module):
-    def __init__(self, device):
+    def __init__(self, device, dropout=0.2):
         super().__init__()
         self.device = device
         modules = []
@@ -415,17 +417,17 @@ class MnistEncoderCNN(nn.Module):
         modules.append(nn.Conv2d(1, 32, kernel_size=3))
         modules.append(nn.BatchNorm2d(32))
         modules.append(nn.PReLU())
-        modules.append(nn.Dropout(0.2))
+        modules.append(nn.Dropout(dropout))
 
         modules.append(nn.Conv2d(32, 32, kernel_size=3, stride=2))
         modules.append(nn.BatchNorm2d(32))
         modules.append(nn.PReLU())
-        modules.append(nn.Dropout(0.2))
+        modules.append(nn.Dropout(dropout))
 
         modules.append(nn.Conv2d(32, 64, kernel_size=3))
         modules.append(nn.BatchNorm2d(64))
         modules.append(nn.PReLU())
-        modules.append(nn.Dropout(0.2))
+        modules.append(nn.Dropout(dropout))
 
         modules.append(nn.Flatten())
         modules.append(nn.Linear(in_features=6400, out_features=128, bias=True, device=self.device))
@@ -438,7 +440,7 @@ class MnistEncoderCNN(nn.Module):
 
 
 class MnistDecoderCNN(nn.Module):
-    def __init__(self, device):
+    def __init__(self, device, dropout=0.2):
         super().__init__()
         self.device = device
         modules = []
@@ -448,18 +450,18 @@ class MnistDecoderCNN(nn.Module):
         modules.append(nn.Linear(in_features=128, out_features=6400, bias=True, device=self.device))
         modules.append(nn.BatchNorm1d(6400))
         modules.append(nn.PReLU())
-        modules.append(nn.Dropout(0.2))
+        modules.append(nn.Dropout(dropout))
         modules.append(nn.Unflatten(1, (64, 10, 10)))
 
         modules.append(nn.ConvTranspose2d(64, 32, kernel_size=3))
         modules.append(nn.BatchNorm2d(32))
         modules.append(nn.ReLU())
-        modules.append(nn.Dropout(0.2))
+        modules.append(nn.Dropout(dropout))
 
         modules.append(nn.ConvTranspose2d(32, 32, kernel_size=3, stride=2, output_padding=1))
         modules.append(nn.BatchNorm2d(32))
         modules.append(nn.ReLU())
-        modules.append(nn.Dropout(0.2))
+        modules.append(nn.Dropout(dropout))
 
         modules.append(nn.ConvTranspose2d(32, 1, kernel_size=3))
         # ========================
@@ -520,7 +522,7 @@ class AE(nn.Module):
 
 
 class CifarEncoderCNN(nn.Module):
-    def __init__(self, device):
+    def __init__(self, device, dropout=0.2):
         super().__init__()
         self.device = device
         modules = []
@@ -530,22 +532,22 @@ class CifarEncoderCNN(nn.Module):
         modules.append(nn.Conv2d(3, 32, kernel_size=3, padding=1))
         modules.append(nn.BatchNorm2d(32))
         modules.append(nn.PReLU())
-        modules.append(nn.Dropout(0.2))
+        modules.append(nn.Dropout(dropout))
 
         modules.append(nn.Conv2d(32, 64, kernel_size=3, stride=2, padding=1))
         modules.append(nn.BatchNorm2d(64))
         modules.append(nn.PReLU())
-        modules.append(nn.Dropout(0.2))
+        modules.append(nn.Dropout(dropout))
 
         modules.append(nn.Conv2d(64, 128, kernel_size=3, stride=2, padding=1))
         modules.append(nn.BatchNorm2d(128))
         modules.append(nn.PReLU())
-        modules.append(nn.Dropout(0.2))
+        modules.append(nn.Dropout(dropout))
 
         modules.append(nn.Conv2d(128, 256, kernel_size=3, padding=1))
         modules.append(nn.BatchNorm2d(256))
         modules.append(nn.PReLU())
-        modules.append(nn.Dropout(0.2))
+        modules.append(nn.Dropout(dropout))
 
 
         modules.append(nn.Flatten())
@@ -558,7 +560,7 @@ class CifarEncoderCNN(nn.Module):
         return self.cnn(x)
 
 class CifarDecoderCNN(nn.Module):
-    def __init__(self, device):
+    def __init__(self, device, dropout=0.2):
         super().__init__()
         self.device = device
         modules = []
@@ -568,23 +570,23 @@ class CifarDecoderCNN(nn.Module):
         modules.append(nn.Linear(in_features=128, out_features=16384, bias=True, device=self.device))
         modules.append(nn.BatchNorm1d(16384))
         modules.append(nn.PReLU())
-        modules.append(nn.Dropout(0.2))
+        modules.append(nn.Dropout(dropout))
         modules.append(nn.Unflatten(1, (256, 8, 8)))
 
         modules.append(nn.ConvTranspose2d(256, 128, kernel_size=3, padding=1))
         modules.append(nn.BatchNorm2d(128))
         modules.append(nn.ReLU())
-        modules.append(nn.Dropout(0.2))
+        modules.append(nn.Dropout(dropout))
 
         modules.append(nn.ConvTranspose2d(128, 64, kernel_size=3, stride=2, output_padding=1, padding=1))
         modules.append(nn.BatchNorm2d(64))
         modules.append(nn.ReLU())
-        modules.append(nn.Dropout(0.2))
+        modules.append(nn.Dropout(dropout))
 
         modules.append(nn.ConvTranspose2d(64, 32, kernel_size=3, stride=2, output_padding=1, padding=1))
         modules.append(nn.BatchNorm2d(32))
         modules.append(nn.ReLU())
-        modules.append(nn.Dropout(0.2))
+        modules.append(nn.Dropout(dropout))
 
         modules.append(nn.ConvTranspose2d(32, 3, kernel_size=3, padding=1))
         # ========================
@@ -597,21 +599,21 @@ class CifarDecoderCNN(nn.Module):
 
 
 def self_supervised_training(args, train_dl, test_dl, val_dl, train_dataset, test_dataset):
-    encoder_model = MnistEncoderCNN(device=args.device).to(args.device) if args.mnist else CifarEncoderCNN(
+    encoder_model = MnistEncoderCNN(device=args.device, dropout=args.dropout).to(args.device) if args.mnist else CifarEncoderCNN(
         device=args.device).to(args.device)
-    decoder_model = MnistDecoderCNN(device=args.device).to(args.device) if args.mnist else CifarDecoderCNN(
+    decoder_model = MnistDecoderCNN(device=args.device, dropout=args.dropout).to(args.device) if args.mnist else CifarDecoderCNN(
         device=args.device).to(args.device)
 
     ae = AE(encoder_model, decoder_model).to(args.device)
 
     loss_fn = nn.L1Loss()
-    optimizer = torch.optim.Adam(ae.parameters(), lr=10 ** -3, betas=(0.9, 0.999))
+    optimizer = torch.optim.Adam(ae.parameters(), lr=args.lr_ae, betas=(0.9, 0.999))
 
     trainer = AETrainer(model=ae, loss_fn=loss_fn, optimizer=optimizer, device=args.device)
 
     checkpoint_file = 'mnist_ae' if args.mnist else 'cifar_ae'
 
-    res = trainer.fit(dl_train=train_dl, dl_test=test_dl, num_epochs=100, early_stopping=10, print_every=1,
+    res, _ = trainer.fit(dl_train=train_dl, dl_test=test_dl, dl_val=val_dl, num_epochs=100, early_stopping=10, print_every=1,
                           checkpoints=checkpoint_file)
 
     # Visualization section
@@ -657,14 +659,16 @@ def self_supervised_training(args, train_dl, test_dl, val_dl, train_dataset, tes
 
     classifier = Classifier(encoder_model).to(args.device)
     loss_fn = nn.CrossEntropyLoss()
-    optimizer = torch.optim.Adam(classifier.classifier.parameters(), lr=10 ** -3, betas=(0.9, 0.999))
+    optimizer = torch.optim.Adam(classifier.classifier.parameters(), lr=args.lr_cl, betas=(0.9, 0.999))
     classifier_trainer = ClassifierTrainer(model=classifier, loss_fn=loss_fn, optimizer=optimizer,
                                            device=args.device, is_simclr=False)
 
     checkpoint_file = "mnist_classifier" if args.mnist else "cifar_classifier"
 
-    res = classifier_trainer.fit(dl_train=train_dl, dl_test=test_dl, num_epochs=100, early_stopping=10,
+    res, best_acc = classifier_trainer.fit(dl_train=train_dl, dl_test=test_dl, dl_val=val_dl, num_epochs=100, early_stopping=10,
                                     print_every=1, checkpoints=checkpoint_file)
+
+    return best_acc
 
 def supervised_training(args, train_dl, test_dl, val_dl, train_dataset, test_dataset):
     encoder_model = MnistEncoderCNN(device=args.device).to(args.device) if args.mnist else CifarEncoderCNN(
@@ -846,36 +850,61 @@ if __name__ == "__main__":
 
     print("Device:", args.device)
                                            
-    if args.mnist:
-        train_dataset = datasets.MNIST(root=args.data_path, train=True, download=False, transform=transform)
-        test_dataset = datasets.MNIST(root=args.data_path, train=False, download=False, transform=transform)
-    else:
-        train_dataset = datasets.CIFAR10(root=args.data_path, train=True, download=True, transform=transform)
-        test_dataset = datasets.CIFAR10(root=args.data_path, train=False, download=True, transform=transform)
-        
-    # When you create your dataloader you should split train_dataset or test_dataset to leave some aside for validation
-    val_ratio = 0.1
-    train_size = int((1 - val_ratio) * len(train_dataset))  # 90% train
-    val_size = len(train_dataset) - train_size  # 10% validation
 
-    # Perform the split
-    train_dataset, val_dataset = random_split(train_dataset, [train_size, val_size])
-    train_dl = torch.utils.data.DataLoader(
-        train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=1
-    )
-    val_dl = torch.utils.data.DataLoader(
-        val_dataset, batch_size=args.batch_size, shuffle=True, num_workers=1
-    )
-    test_dl = torch.utils.data.DataLoader(
-        test_dataset, batch_size=args.batch_size, shuffle=True, num_workers=1
-    )
 
-    if args.simclr:
-        simclr_training(args, train_dl, test_dl, val_dl, train_dataset, test_dataset)
-    elif args.self_supervised:
-        self_supervised_training(args, train_dl, test_dl, val_dl, train_dataset, test_dataset)
-    else:
-        supervised_training(args, train_dl, test_dl, val_dl, train_dataset, test_dataset)
+    best_acc = 0
+    best_hp = {}
+    for lr_ae in np.logspace(-5, -1, 5):
+        for lr_cl in np.logspace(-5, -1, 5):
+            for dropout in [0.05, 0.1, 0.2, 0.3, 0.4]:
+                for batch_size in [32,64,128, 256]:
+
+                    args.lr_ae = lr_ae
+                    args.lr_cl = lr_cl
+                    args.dropout = dropout
+                    args.batch_size = batch_size
+                    print("Hyperparameters:", {"lr_ae": lr_ae, "lr_cl": lr_cl, "dropout": dropout, "batch_size": batch_size})
+
+                    if args.mnist:
+                        train_dataset = datasets.MNIST(root=args.data_path, train=True, download=False,
+                                                       transform=transform)
+                        test_dataset = datasets.MNIST(root=args.data_path, train=False, download=False,
+                                                      transform=transform)
+                    else:
+                        train_dataset = datasets.CIFAR10(root=args.data_path, train=True, download=True,
+                                                         transform=transform)
+                        test_dataset = datasets.CIFAR10(root=args.data_path, train=False, download=True,
+                                                        transform=transform)
+
+                    # When you create your dataloader you should split train_dataset or test_dataset to leave some aside for validation
+                    val_ratio = 0.1
+                    train_size = int((1 - val_ratio) * len(train_dataset))  # 90% train
+                    val_size = len(train_dataset) - train_size  # 10% validation
+
+                    # Perform the split
+                    train_dataset, val_dataset = random_split(train_dataset, [train_size, val_size])
+                    train_dl = torch.utils.data.DataLoader(
+                        train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=1
+                    )
+                    val_dl = torch.utils.data.DataLoader(
+                        val_dataset, batch_size=args.batch_size, shuffle=True, num_workers=1
+                    )
+                    test_dl = torch.utils.data.DataLoader(
+                        test_dataset, batch_size=args.batch_size, shuffle=True, num_workers=1
+                    )
+
+                    if args.simclr:
+                        cur_best_acc = simclr_training(args, train_dl, test_dl, val_dl, train_dataset, test_dataset)
+                    elif args.self_supervised:
+                        cur_best_acc = self_supervised_training(args, train_dl, test_dl, val_dl, train_dataset, test_dataset)
+                    else:
+                        cur_best_acc = supervised_training(args, train_dl, test_dl, val_dl, train_dataset, test_dataset)
+
+                    if cur_best_acc > best_acc:
+                        best_acc = cur_best_acc
+                        best_hp = {"lr_ae": lr_ae, "lr_cl": lr_cl, "dropout": dropout, "batch_size": batch_size}
+    print("Best hyperparameters:", best_hp)
+
 
 
 
