@@ -598,7 +598,7 @@ class CifarDecoderCNN(nn.Module):
         return torch.tanh(self.cnn(h))
 
 
-def self_supervised_training(args, train_dl, test_dl, val_dl, train_dataset, test_dataset):
+def self_supervised_training(args, train_dl, test_dl, val_dl=None, test_dataset=None):
     encoder_model = MnistEncoderCNN(device=args.device, dropout=args.dropout).to(args.device) if args.mnist else CifarEncoderCNN(
         device=args.device).to(args.device)
     decoder_model = MnistDecoderCNN(device=args.device, dropout=args.dropout).to(args.device) if args.mnist else CifarDecoderCNN(
@@ -614,7 +614,7 @@ def self_supervised_training(args, train_dl, test_dl, val_dl, train_dataset, tes
     checkpoint_file = 'mnist_ae' if args.mnist else 'cifar_ae'
     checkpoint_file = None if args.val else checkpoint_file
 
-    res, _ = trainer.fit(dl_train=train_dl, dl_test=test_dl, dl_val=val_dl, num_epochs=100, early_stopping=10, print_every=1,
+    res, _ = trainer.fit(dl_train=train_dl, dl_test=test_dl, dl_val=val_dl, num_epochs=200, early_stopping=10, print_every=1,
                           checkpoints=checkpoint_file)
 
     # Visualization section
@@ -667,25 +667,26 @@ def self_supervised_training(args, train_dl, test_dl, val_dl, train_dataset, tes
     checkpoint_file = "mnist_classifier" if args.mnist else "cifar_classifier"
     checkpoint_file = None if args.val else checkpoint_file
 
-    res, best_acc = classifier_trainer.fit(dl_train=train_dl, dl_test=test_dl, dl_val=val_dl, num_epochs=100, early_stopping=10,
+    res, res_best_acc = classifier_trainer.fit(dl_train=train_dl, dl_test=test_dl, dl_val=val_dl, num_epochs=200, early_stopping=10,
                                     print_every=1, checkpoints=checkpoint_file)
 
-    return best_acc
+    return res_best_acc
 
-def supervised_training(args, train_dl, test_dl, val_dl, train_dataset, test_dataset):
-    encoder_model = MnistEncoderCNN(device=args.device).to(args.device) if args.mnist else CifarEncoderCNN(
+def supervised_training(args, train_dl, test_dl, val_dl=None):
+    encoder_model = MnistEncoderCNN(device=args.device, dropout=args.dropout).to(args.device) if args.mnist else CifarEncoderCNN(
         device=args.device).to(args.device)
     classifier = Classifier(encoder_model, freeze_encoder=False).to(args.device)
 
     loss_fn = nn.CrossEntropyLoss()
-    optimizer = torch.optim.Adam(classifier.parameters(), lr=10 ** -3, betas=(0.9, 0.999))
+    optimizer = torch.optim.Adam(classifier.parameters(), lr=args.lr_cl, betas=(0.9, 0.999))
 
     trainer = ClassifierTrainer(model=classifier, loss_fn=loss_fn, optimizer=optimizer, device=args.device)
 
     checkpoint_file = 'mnist_classifier_supervised' if args.mnist else 'cifar_classifier_supervised'
-
-    res = trainer.fit(dl_train=train_dl, dl_test=test_dl, num_epochs=100, early_stopping=10, print_every=1,
+    checkpoint_file = None if args.val else checkpoint_file
+    res, res_best_acc = trainer.fit(dl_train=train_dl, dl_test=test_dl, dl_val=val_dl, num_epochs=200, early_stopping=10, print_every=1,
                           checkpoints=checkpoint_file)
+    return res_best_acc
 
 
 class SimCLRTransform:
@@ -771,6 +772,9 @@ def nt_xent_loss(z_i, z_j, temperature=0.5):
     loss = -torch.log(numerator / denominator)
     return loss.mean()
 
+def get_nt_xent_loss(temperature=0.5):
+    return lambda z_i, z_j: nt_xent_loss(z_i, z_j, temperature=temperature)
+
 class SimCLRTrainer(Trainer):
     def train_batch(self, batch) -> BatchResult:
         x, y = batch
@@ -782,7 +786,7 @@ class SimCLRTrainer(Trainer):
         z_i = self.model(x_i)
         z_j = self.model(x_j)
 
-        loss = nt_xent_loss(z_i, z_j)
+        loss = self.loss_fn(z_i, z_j)
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
@@ -800,30 +804,92 @@ class SimCLRTrainer(Trainer):
         z_i = self.model(x_i)
         z_j = self.model(x_j)
 
-        loss = nt_xent_loss(z_i, z_j)
+        loss = self.loss_fn(z_i, z_j)
         # ========================
 
         return BatchResult(loss.item(), 1/loss.item())
 
-def simclr_training(args, train_dl, test_dl, val_dl, train_dataset, test_dataset):
+def simclr_training(args, train_dl, test_dl, val_dl=None):
     simclr = SimCLR(hidden_dim=args.latent_dim, is_mnist=args.mnist, device=args.device)
-    loss_fn = nt_xent_loss
-    optimizer = torch.optim.Adam(simclr.parameters(), lr=10 ** -3, betas=(0.9, 0.999))
+    loss_fn = get_nt_xent_loss(args.temperature)
+    optimizer = torch.optim.Adam(simclr.parameters(), lr=args.lr_ae, betas=(0.9, 0.999))
     trainer = SimCLRTrainer(model=simclr, loss_fn=loss_fn, optimizer=optimizer, device=args.device)
     checkpoint_file = "simclr_mnist" if args.mnist else "simclr_cifar"
-    res = trainer.fit(dl_train=train_dl, dl_test=test_dl, num_epochs=200, early_stopping=10, print_every=1, checkpoints=checkpoint_file)
+    checkpoint_file = None if args.val else checkpoint_file
+    res, _ = trainer.fit(dl_train=train_dl, dl_test=test_dl, dl_val=val_dl, num_epochs=200, early_stopping=10, print_every=1, checkpoints=checkpoint_file)
 
     classifier = Classifier(simclr, freeze_encoder=True).to(args.device)
     loss_fn = nn.CrossEntropyLoss()
-    optimizer = torch.optim.Adam(classifier.classifier.parameters(), lr=10 ** -3, betas=(0.9, 0.999))
+    optimizer = torch.optim.Adam(classifier.classifier.parameters(), lr=args.lr_cl, betas=(0.9, 0.999))
     classifier_trainer = ClassifierTrainer(model=classifier, loss_fn=loss_fn, optimizer=optimizer,
                                            device=args.device, is_simclr=True)
 
     classifier_checkpoint_file = "simclr_mnist_classifier" if args.mnist else "simclr_cifar_classifier"
+    classifier_checkpoint_file = None if args.val else classifier_checkpoint_file
 
-    res = classifier_trainer.fit(dl_train=train_dl, dl_test=test_dl, num_epochs=100, early_stopping=10,
+    res, res_best_acc = classifier_trainer.fit(dl_train=train_dl, dl_test=test_dl, dl_val=val_dl, num_epochs=200, early_stopping=10,
                                  print_every=1, checkpoints=classifier_checkpoint_file)
+    return res_best_acc
 
+def tune_hp(args, transform):
+    best_acc = 0
+    best_hp = {}
+    temperatures = [0.1, 0.5, 1, 2, 5] if args.simclr else [0.5]
+    for temperature in temperatures:
+        for lr_ae in np.logspace(-5, -1, 5):
+            for lr_cl in np.logspace(-5, -1, 5):
+                for dropout in [0.05, 0.1, 0.2, 0.3, 0.4]:
+                    for batch_size in [32,64,128, 256]:
+
+                        args.lr_ae = lr_ae
+                        args.lr_cl = lr_cl
+                        args.dropout = dropout
+                        args.batch_size = batch_size
+                        args.temperature = temperature
+                        print("Hyperparameters:", {"lr_ae": lr_ae, "lr_cl": lr_cl, "dropout": dropout, "batch_size": batch_size})
+
+                        if args.mnist:
+                            train_dataset = datasets.MNIST(root=args.data_path, train=True, download=False,
+                                                           transform=transform)
+                            test_dataset = datasets.MNIST(root=args.data_path, train=False, download=False,
+                                                          transform=transform)
+                        else:
+                            train_dataset = datasets.CIFAR10(root=args.data_path, train=True, download=True,
+                                                             transform=transform)
+                            test_dataset = datasets.CIFAR10(root=args.data_path, train=False, download=True,
+                                                            transform=transform)
+
+                        # When you create your dataloader you should split train_dataset or test_dataset to leave some aside for validation
+                        val_ratio = 0.1
+                        train_size = int((1 - val_ratio) * len(train_dataset))  # 90% train
+                        val_size = len(train_dataset) - train_size  # 10% validation
+
+                        # Perform the split
+                        train_dataset, val_dataset = random_split(train_dataset, [train_size, val_size])
+                        train_dl = torch.utils.data.DataLoader(
+                            train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=1
+                        )
+                        val_dl = torch.utils.data.DataLoader(
+                            val_dataset, batch_size=args.batch_size, shuffle=True, num_workers=1
+                        )
+                        test_dl = torch.utils.data.DataLoader(
+                            test_dataset, batch_size=args.batch_size, shuffle=True, num_workers=1
+                        )
+
+                        if args.simclr:
+                            cur_best_acc = simclr_training(args, train_dl, test_dl, val_dl)
+                        elif args.self_supervised:
+                            cur_best_acc = self_supervised_training(args, train_dl, test_dl, val_dl, test_dataset)
+                        else:
+                            cur_best_acc = supervised_training(args, train_dl, test_dl, val_dl)
+
+                        if cur_best_acc > best_acc:
+                            best_acc = cur_best_acc
+                            best_hp = {"lr_ae": lr_ae, "lr_cl": lr_cl, "dropout": dropout, "batch_size": batch_size, "temperature": temperature}
+                        print("Current hyper parameters best accuracy: ", cur_best_acc)
+    print("Best hyperparameters:", best_hp)
+    print("Best accuracy:", best_acc)
+    return best_hp
 
 
 if __name__ == "__main__":
@@ -851,62 +917,50 @@ if __name__ == "__main__":
 
 
     print("Device:", args.device)
-                                           
+    if args.val:
+        tune_hp(args, transform)
+        exit()
+
+    lr_ae = 1e-3
+    lr_cl = 1e-3
+    dropout = 0.2
+    batch_size = 64
+    temperature = 0.5
+
+    args.lr_ae = lr_ae
+    args.lr_cl = lr_cl
+    args.dropout = dropout
+    args.batch_size = batch_size
+    args.temperature = temperature
+
+    if args.mnist:
+        train_dataset = datasets.MNIST(root=args.data_path, train=True, download=False,
+                                       transform=transform)
+        test_dataset = datasets.MNIST(root=args.data_path, train=False, download=False,
+                                      transform=transform)
+    else:
+        train_dataset = datasets.CIFAR10(root=args.data_path, train=True, download=True,
+                                         transform=transform)
+        test_dataset = datasets.CIFAR10(root=args.data_path, train=False, download=True,
+                                        transform=transform)
+
+    # Perform the split
+    train_dl = torch.utils.data.DataLoader(
+        train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=1
+    )
+    test_dl = torch.utils.data.DataLoader(
+        test_dataset, batch_size=args.batch_size, shuffle=True, num_workers=1
+    )
+
+    if args.simclr:
+        _ = simclr_training(args, train_dl, test_dl)
+    elif args.self_supervised:
+        _ = self_supervised_training(args, train_dl, test_dl, test_dataset=test_dataset)
+    else:
+        _ = supervised_training(args, train_dl, test_dl, train_dataset)
 
 
-    best_acc = 0
-    best_hp = {}
-    for lr_ae in np.logspace(-5, -1, 5):
-        for lr_cl in np.logspace(-5, -1, 5):
-            for dropout in [0.05, 0.1, 0.2, 0.3, 0.4]:
-                for batch_size in [32,64,128, 256]:
 
-                    args.lr_ae = lr_ae
-                    args.lr_cl = lr_cl
-                    args.dropout = dropout
-                    args.batch_size = batch_size
-                    print("Hyperparameters:", {"lr_ae": lr_ae, "lr_cl": lr_cl, "dropout": dropout, "batch_size": batch_size})
-
-                    if args.mnist:
-                        train_dataset = datasets.MNIST(root=args.data_path, train=True, download=False,
-                                                       transform=transform)
-                        test_dataset = datasets.MNIST(root=args.data_path, train=False, download=False,
-                                                      transform=transform)
-                    else:
-                        train_dataset = datasets.CIFAR10(root=args.data_path, train=True, download=True,
-                                                         transform=transform)
-                        test_dataset = datasets.CIFAR10(root=args.data_path, train=False, download=True,
-                                                        transform=transform)
-
-                    # When you create your dataloader you should split train_dataset or test_dataset to leave some aside for validation
-                    val_ratio = 0.1
-                    train_size = int((1 - val_ratio) * len(train_dataset))  # 90% train
-                    val_size = len(train_dataset) - train_size  # 10% validation
-
-                    # Perform the split
-                    train_dataset, val_dataset = random_split(train_dataset, [train_size, val_size])
-                    train_dl = torch.utils.data.DataLoader(
-                        train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=1
-                    )
-                    val_dl = torch.utils.data.DataLoader(
-                        val_dataset, batch_size=args.batch_size, shuffle=True, num_workers=1
-                    )
-                    test_dl = torch.utils.data.DataLoader(
-                        test_dataset, batch_size=args.batch_size, shuffle=True, num_workers=1
-                    )
-
-                    if args.simclr:
-                        cur_best_acc = simclr_training(args, train_dl, test_dl, val_dl, train_dataset, test_dataset)
-                    elif args.self_supervised:
-                        cur_best_acc = self_supervised_training(args, train_dl, test_dl, val_dl, train_dataset, test_dataset)
-                    else:
-                        cur_best_acc = supervised_training(args, train_dl, test_dl, val_dl, train_dataset, test_dataset)
-
-                    if cur_best_acc > best_acc:
-                        best_acc = cur_best_acc
-                        best_hp = {"lr_ae": lr_ae, "lr_cl": lr_cl, "dropout": dropout, "batch_size": batch_size}
-    print("Best hyperparameters:", best_hp)
-    print("Best accuracy:", best_acc)
 
 
 
