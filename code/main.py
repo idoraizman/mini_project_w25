@@ -906,6 +906,7 @@ if __name__ == "__main__":
                         best_acc = cur_best_acc
                         best_hp = {"lr_ae": lr_ae, "lr_cl": lr_cl, "dropout": dropout, "batch_size": batch_size}
     print("Best hyperparameters:", best_hp)
+    print("Best accuracy:", best_acc)
 
 
 
