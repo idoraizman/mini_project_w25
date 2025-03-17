@@ -143,7 +143,7 @@ class Trainer(abc.ABC):
                     "ewi", epochs_without_improvement
                 )
                 self.model.load_state_dict(saved_state["model_state"])
-                return
+                return None, best_acc
 
         for epoch in range(num_epochs):
             save_checkpoint = False
@@ -612,6 +612,7 @@ def self_supervised_training(args, train_dl, test_dl, val_dl, train_dataset, tes
     trainer = AETrainer(model=ae, loss_fn=loss_fn, optimizer=optimizer, device=args.device)
 
     checkpoint_file = 'mnist_ae' if args.mnist else 'cifar_ae'
+    checkpoint_file = None if args.val else checkpoint_file
 
     res, _ = trainer.fit(dl_train=train_dl, dl_test=test_dl, dl_val=val_dl, num_epochs=100, early_stopping=10, print_every=1,
                           checkpoints=checkpoint_file)
@@ -664,6 +665,7 @@ def self_supervised_training(args, train_dl, test_dl, val_dl, train_dataset, tes
                                            device=args.device, is_simclr=False)
 
     checkpoint_file = "mnist_classifier" if args.mnist else "cifar_classifier"
+    checkpoint_file = None if args.val else checkpoint_file
 
     res, best_acc = classifier_trainer.fit(dl_train=train_dl, dl_test=test_dl, dl_val=val_dl, num_epochs=100, early_stopping=10,
                                     print_every=1, checkpoints=checkpoint_file)
