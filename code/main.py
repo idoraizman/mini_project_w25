@@ -614,7 +614,7 @@ def self_supervised_training(args, train_dl, test_dl, val_dl=None, test_dataset=
     checkpoint_file = 'mnist_ae' if args.mnist else 'cifar_ae'
     checkpoint_file = None if args.val else checkpoint_file
 
-    res, _ = trainer.fit(dl_train=train_dl, dl_test=test_dl, dl_val=val_dl, num_epochs=200, early_stopping=10, print_every=1,
+    res, _ = trainer.fit(dl_train=train_dl, dl_test=test_dl, dl_val=val_dl, num_epochs=100, early_stopping=10, print_every=1,
                           checkpoints=checkpoint_file)
 
     # Visualization section
@@ -667,7 +667,7 @@ def self_supervised_training(args, train_dl, test_dl, val_dl=None, test_dataset=
     checkpoint_file = "mnist_classifier" if args.mnist else "cifar_classifier"
     checkpoint_file = None if args.val else checkpoint_file
 
-    res, res_best_acc = classifier_trainer.fit(dl_train=train_dl, dl_test=test_dl, dl_val=val_dl, num_epochs=200, early_stopping=10,
+    res, res_best_acc = classifier_trainer.fit(dl_train=train_dl, dl_test=test_dl, dl_val=val_dl, num_epochs=100, early_stopping=10,
                                     print_every=1, checkpoints=checkpoint_file)
 
     return res_best_acc
@@ -834,12 +834,12 @@ def simclr_training(args, train_dl, test_dl, val_dl=None):
 def tune_hp(args, transform):
     best_acc = 0
     best_hp = {}
-    temperatures = [0.1, 0.5, 1, 2, 5] if args.simclr else [0.5]
+    temperatures = [0.5, 1, 2] if args.simclr else [0.5]
     for temperature in temperatures:
-        for lr_ae in np.logspace(-5, -1, 5):
-            for lr_cl in np.logspace(-5, -1, 5):
-                for dropout in [0.05, 0.1, 0.2, 0.3, 0.4]:
-                    for batch_size in [32,64,128, 256]:
+        for lr_ae in np.logspace(-5, -1, 3):
+            for lr_cl in np.logspace(-5, -1, 3):
+                for dropout in [0.2, 0.3, 0.4]:
+                    for batch_size in [64, 128, 256]:
 
                         args.lr_ae = lr_ae
                         args.lr_cl = lr_cl
@@ -886,7 +886,7 @@ def tune_hp(args, transform):
                         if cur_best_acc > best_acc:
                             best_acc = cur_best_acc
                             best_hp = {"lr_ae": lr_ae, "lr_cl": lr_cl, "dropout": dropout, "batch_size": batch_size, "temperature": temperature}
-                        print("Current hyper parameters best accuracy: ", cur_best_acc)
+                        print("Current hyper parameters best accuracy: ", cur_best_acc) # TODO: change to best_acc
     print("Best hyperparameters:", best_hp)
     print("Best accuracy:", best_acc)
     return best_hp
