@@ -816,7 +816,7 @@ def simclr_training(args, train_dl, test_dl, val_dl=None):
     trainer = SimCLRTrainer(model=simclr, loss_fn=loss_fn, optimizer=optimizer, device=args.device)
     checkpoint_file = "simclr_mnist" if args.mnist else "simclr_cifar"
     checkpoint_file = None if args.val else checkpoint_file
-    res, _ = trainer.fit(dl_train=train_dl, dl_test=test_dl, dl_val=val_dl, num_epochs=200, early_stopping=10, print_every=1, checkpoints=checkpoint_file)
+    res, _ = trainer.fit(dl_train=train_dl, dl_test=test_dl, dl_val=val_dl, num_epochs=100, early_stopping=10, print_every=1, checkpoints=checkpoint_file)
 
     classifier = Classifier(simclr, freeze_encoder=True).to(args.device)
     loss_fn = nn.CrossEntropyLoss()
@@ -827,7 +827,7 @@ def simclr_training(args, train_dl, test_dl, val_dl=None):
     classifier_checkpoint_file = "simclr_mnist_classifier" if args.mnist else "simclr_cifar_classifier"
     classifier_checkpoint_file = None if args.val else classifier_checkpoint_file
 
-    res, res_best_acc = classifier_trainer.fit(dl_train=train_dl, dl_test=test_dl, dl_val=val_dl, num_epochs=200, early_stopping=10,
+    res, res_best_acc = classifier_trainer.fit(dl_train=train_dl, dl_test=test_dl, dl_val=val_dl, num_epochs=100, early_stopping=10,
                                  print_every=1, checkpoints=classifier_checkpoint_file)
     return res_best_acc
 
