@@ -924,7 +924,7 @@ if __name__ == "__main__":
     lr_ae = 0.03 #1e-3
     lr_cl = 0.03 #1e-3
     dropout = 0.2
-    batch_size = 1024
+    batch_size = 256
     temperature = 0.5
 
     args.lr_ae = lr_ae
