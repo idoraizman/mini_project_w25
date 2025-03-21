@@ -816,7 +816,7 @@ def simclr_training(args, train_dl, test_dl, val_dl=None):
     trainer = SimCLRTrainer(model=simclr, loss_fn=loss_fn, optimizer=optimizer, device=args.device)
     checkpoint_file = "simclr_mnist" if args.mnist else "simclr_cifar"
     checkpoint_file = None if args.val else checkpoint_file
-    res, _ = trainer.fit(dl_train=train_dl, dl_test=test_dl, dl_val=val_dl, num_epochs=100, early_stopping=10, print_every=1, checkpoints=checkpoint_file)
+    res, _ = trainer.fit(dl_train=train_dl, dl_test=test_dl, dl_val=val_dl, num_epochs=200, early_stopping=10, print_every=1, checkpoints=checkpoint_file)
 
     classifier = Classifier(simclr, freeze_encoder=True).to(args.device)
     loss_fn = nn.CrossEntropyLoss()
@@ -827,7 +827,7 @@ def simclr_training(args, train_dl, test_dl, val_dl=None):
     classifier_checkpoint_file = "simclr_mnist_classifier" if args.mnist else "simclr_cifar_classifier"
     classifier_checkpoint_file = None if args.val else classifier_checkpoint_file
 
-    res, res_best_acc = classifier_trainer.fit(dl_train=train_dl, dl_test=test_dl, dl_val=val_dl, num_epochs=100, early_stopping=10,
+    res, res_best_acc = classifier_trainer.fit(dl_train=train_dl, dl_test=test_dl, dl_val=val_dl, num_epochs=200, early_stopping=10,
                                  print_every=1, checkpoints=classifier_checkpoint_file)
     return res_best_acc
 
@@ -886,7 +886,7 @@ def tune_hp(args, transform):
                         if cur_best_acc > best_acc:
                             best_acc = cur_best_acc
                             best_hp = {"lr_ae": lr_ae, "lr_cl": lr_cl, "dropout": dropout, "batch_size": batch_size, "temperature": temperature}
-                        print("Current hyper parameters best accuracy: ", cur_best_acc) # TODO: change to best_acc
+                        print("Current hyper parameters best accuracy: ", cur_best_acc, flush=True) # TODO: change to best_acc
     print("Best hyperparameters:", best_hp)
     print("Best accuracy:", best_acc)
     return best_hp
@@ -921,10 +921,10 @@ if __name__ == "__main__":
         tune_hp(args, transform)
         exit()
 
-    lr_ae = 1e-3
-    lr_cl = 1e-3
+    lr_ae = 0.03 #1e-3
+    lr_cl = 0.03 #1e-3
     dropout = 0.2
-    batch_size = 64
+    batch_size = 1024
     temperature = 0.5
 
     args.lr_ae = lr_ae
@@ -953,11 +953,13 @@ if __name__ == "__main__":
     )
 
     if args.simclr:
-        _ = simclr_training(args, train_dl, test_dl)
+        res = simclr_training(args, train_dl, test_dl)
     elif args.self_supervised:
-        _ = self_supervised_training(args, train_dl, test_dl, test_dataset=test_dataset)
+        res = self_supervised_training(args, train_dl, test_dl, test_dataset=test_dataset)
     else:
-        _ = supervised_training(args, train_dl, test_dl, train_dataset)
+        res = supervised_training(args, train_dl, test_dl, train_dataset)
+
+    print("Best accuracy:", res, flush=True)
 
 
 
