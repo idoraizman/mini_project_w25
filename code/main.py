@@ -921,8 +921,8 @@ if __name__ == "__main__":
         tune_hp(args, transform)
         exit()
 
-    lr_ae = 0.03 #1e-3
-    lr_cl = 0.03 #1e-3
+    lr_ae = 1e-3
+    lr_cl = 1e-3
     dropout = 0.2
     batch_size = 256
     temperature = 0.5
