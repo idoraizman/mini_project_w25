@@ -718,7 +718,7 @@ class SimCLR(nn.Module):
         super(SimCLR, self).__init__()
         self.device = device
         # Load a ResNet18 backbone; remove its final fc layer.
-        self.encoder = torchvision.models.resnet50(pretrained=False)
+        self.encoder = torchvision.models.resnet18(pretrained=False)
 
         if is_mnist:
             self.encoder.conv1 = nn.Conv2d(1, 64, kernel_size=7, stride=2, padding=3, bias=False)
