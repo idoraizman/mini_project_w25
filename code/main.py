@@ -846,7 +846,7 @@ def tune_hp(args, transform):
                         args.dropout = dropout
                         args.batch_size = batch_size
                         args.temperature = temperature
-                        print("Hyperparameters:", {"lr_ae": lr_ae, "lr_cl": lr_cl, "dropout": dropout, "batch_size": batch_size})
+                        print("Hyperparameters:", {"lr_ae": lr_ae, "lr_cl": lr_cl, "dropout": dropout, "batch_size": batch_size}, flush=True)
 
                         if args.mnist:
                             train_dataset = datasets.MNIST(root=args.data_path, train=True, download=False,
@@ -886,9 +886,9 @@ def tune_hp(args, transform):
                         if cur_best_acc > best_acc:
                             best_acc = cur_best_acc
                             best_hp = {"lr_ae": lr_ae, "lr_cl": lr_cl, "dropout": dropout, "batch_size": batch_size, "temperature": temperature}
-                        print("Current hyper parameters best accuracy: ", cur_best_acc, flush=True) # TODO: change to best_acc
-    print("Best hyperparameters:", best_hp)
-    print("Best accuracy:", best_acc)
+                        print("Current hyper parameters best accuracy: ", cur_best_acc, flush=True)
+    print("Best hyperparameters:", best_hp, flush=True)
+    print("Best accuracy:", best_acc, flush=True)
     return best_hp
 
 
