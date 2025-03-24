@@ -714,7 +714,7 @@ def tune_hp(args, transform):
                         args.dropout = dropout
                         args.batch_size = batch_size
                         args.temperature = temperature
-                        print("Hyperparameters:", {"lr_ae": lr_ae, "lr_cl": lr_cl, "dropout": dropout, "batch_size": batch_size}, flush=True)
+                        print("Hyperparameters:", {"lr_ae": lr_ae, "lr_cl": lr_cl, "dropout": dropout, "batch_size": batch_size, "temperature": temperature}, flush=True)
 
                         if args.mnist:
                             train_dataset = datasets.MNIST(root=args.data_path, train=True, download=False,
