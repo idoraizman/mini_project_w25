@@ -836,10 +836,10 @@ def tune_hp(args, transform):
     best_hp = {}
     temperatures = [0.5, 1, 2] if args.simclr else [0.5]
     for temperature in temperatures:
-        for lr_ae in np.logspace(-5, -2.5, 3):
-            for lr_cl in np.logspace(-5, -2.5, 3):
+        for lr_ae in [0.0002]:
+            for lr_cl in [0.0002]:
                 for dropout in [0.2]:
-                    for batch_size in [64]:
+                    for batch_size in [32, 64, 128, 256]:
 
                         args.lr_ae = lr_ae
                         args.lr_cl = lr_cl
