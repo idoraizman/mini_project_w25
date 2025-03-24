@@ -6,7 +6,6 @@ import torchvision
 from torchvision import datasets, transforms
 from torch.utils.data import random_split, DataLoader
 
-import numpy as np
 from matplotlib import pyplot as plt
 from utils import plot_tsne
 import numpy as np
@@ -76,23 +75,9 @@ class FitResult(NamedTuple):
     test_acc: List[float]
 
 class Trainer(abc.ABC):
-    """
-    A class abstracting the various tasks of training models.
-
-    Provides methods at multiple levels of granularity:
-    - Multiple epochs (fit)
-    - Single epoch (train_epoch/test_epoch)
-    - Single batch (train_batch/test_batch)
-    """
 
     def __init__(self, model, loss_fn, optimizer, device):
-        """
-        Initialize the trainer.
-        :param model: Instance of the model to train.
-        :param loss_fn: The loss function to evaluate with.
-        :param optimizer: The optimizer to train with.
-        :param device: torch.device to run training on (CPU or GPU).
-        """
+
         self.model = model
         self.loss_fn = loss_fn
         self.optimizer = optimizer
@@ -109,23 +94,8 @@ class Trainer(abc.ABC):
             print_every=1,
             post_epoch_fn=None,
             dl_val: DataLoader=None,
-            **kw,
     ):
-        """
-        Trains the model for multiple epochs with a given training set,
-        and calculates validation loss over a given validation set.
-        :param dl_train: Dataloader for the training set.
-        :param dl_test: Dataloader for the test set.
-        :param num_epochs: Number of epochs to train for.
-        :param checkpoints: Whether to save model to file every time the
-            test set accuracy improves. Should be a string containing a
-            filename without extension.
-        :param early_stopping: Whether to stop training early if there is no
-            test loss improvement for this number of epochs.
-        :param print_every: Print progress every this number of epochs.
-        :param post_epoch_fn: A function to call after each epoch completes.
-        :return: A FitResult object containing train and test losses per epoch.
-        """
+
         actual_num_epochs = 0
         train_loss, train_acc, test_loss, test_acc = [], [], [], []
 
@@ -140,9 +110,6 @@ class Trainer(abc.ABC):
                 print(f"*** Loading checkpoint file {checkpoint_filename}")
                 saved_state = torch.load(checkpoint_filename, map_location=self.device)
                 best_acc = saved_state.get("best_acc", best_acc)
-                epochs_without_improvement = saved_state.get(
-                    "ewi", epochs_without_improvement
-                )
                 self.model.load_state_dict(saved_state["model_state"])
                 return None, best_acc
 
@@ -153,16 +120,8 @@ class Trainer(abc.ABC):
                 verbose = True
             self._print(f"--- EPOCH {epoch + 1}/{num_epochs} ---", verbose)
 
-            # TODO:
-            #  Train & evaluate for one epoch
-            #  - Use the train/test_epoch methods.
-            #  - Save losses and accuracies in the lists above.
-            #  - Implement early stopping. This is a very useful and
-            #    simple regularization technique that is highly recommended.
-            # ====== YOUR CODE: ======
             train_result = self.train_epoch(dl_train, verbose=verbose)
             test_result = self.test_epoch(dl_test if dl_val is None else dl_val, verbose=verbose)
-            # print(train_res, test_res)
             train_loss.append(sum(train_result.losses) / len(train_result.losses))
             train_acc.append(train_result.accuracy)
             test_loss.append(sum(test_result.losses) / len(test_result.losses))
@@ -176,13 +135,10 @@ class Trainer(abc.ABC):
                 epochs_without_improvement += 1
                 if early_stopping is not None and epochs_without_improvement == early_stopping:
                     break
-            # ========================
 
-            # Save model checkpoint if requested
             if save_checkpoint and checkpoint_filename is not None:
                 saved_state = dict(
                     best_acc=best_acc,
-                    ewi=epochs_without_improvement,
                     model_state=self.model.state_dict(),
                 )
                 torch.save(saved_state, checkpoint_filename)
@@ -196,53 +152,27 @@ class Trainer(abc.ABC):
         return FitResult(actual_num_epochs, train_loss, train_acc, test_loss, test_acc), best_acc
 
     def train_epoch(self, dl_train: DataLoader, **kw) -> EpochResult:
-        """
-        Train once over a training set (single epoch).
-        :param dl_train: DataLoader for the training set.
-        :param kw: Keyword args supported by _foreach_batch.
-        :return: An EpochResult for the epoch.
-        """
+
         self.model.train(True)  # set train mode
         return self._foreach_batch(dl_train, self.train_batch, **kw)
 
     def test_epoch(self, dl_test: DataLoader, **kw) -> EpochResult:
-        """
-        Evaluate model once over a test set (single epoch).
-        :param dl_test: DataLoader for the test set.
-        :param kw: Keyword args supported by _foreach_batch.
-        :return: An EpochResult for the epoch.
-        """
+
         self.model.train(False)  # set evaluation (test) mode
         return self._foreach_batch(dl_test, self.test_batch, **kw)
 
     @abc.abstractmethod
     def train_batch(self, batch) -> BatchResult:
-        """
-        Runs a single batch forward through the model, calculates loss,
-        preforms back-propagation and uses the optimizer to update weights.
-        :param batch: A single batch of data  from a data loader (might
-            be a tuple of data and labels or anything else depending on
-            the underlying dataset.
-        :return: A BatchResult containing the value of the loss function and
-            the number of correctly classified samples in the batch.
-        """
+
         raise NotImplementedError()
 
     @abc.abstractmethod
     def test_batch(self, batch) -> BatchResult:
-        """
-        Runs a single batch forward through the model and calculates loss.
-        :param batch: A single batch of data  from a data loader (might
-            be a tuple of data and labels or anything else depending on
-            the underlying dataset.
-        :return: A BatchResult containing the value of the loss function and
-            the number of correctly classified samples in the batch.
-        """
+
         raise NotImplementedError()
 
     @staticmethod
     def _print(message, verbose=True):
-        """ Simple wrapper around print to make it conditional """
         if verbose:
             print(message)
 
@@ -253,10 +183,7 @@ class Trainer(abc.ABC):
             verbose=True,
             max_batches=None,
     ) -> EpochResult:
-        """
-        Evaluates the given forward-function on batches from the given
-        dataloader, and prints progress along the way.
-        """
+
         losses = []
         num_correct = 0
         num_samples = len(dl.sampler)
@@ -337,7 +264,6 @@ class ClassifierTrainer(Trainer):
         x = x.to(self.device)  # Image batch (N,C,H,W)
         y = y.to(self.device)  # Label batch (N,)
 
-        # ====== YOUR CODE: ======
         y_pred = self.model(x)
 
         loss = self.loss_fn(y_pred, y)
@@ -346,7 +272,7 @@ class ClassifierTrainer(Trainer):
         loss.backward()
 
         self.optimizer.step()
-        # ========================
+
         predictions = torch.argmax(y_pred, dim=1)
 
         num_correct = (predictions == y).sum().item()
@@ -362,11 +288,9 @@ class ClassifierTrainer(Trainer):
 
         with torch.no_grad():
 
-            # ====== YOUR CODE: ======
             y_pred = self.model(x)
-
             loss = self.loss_fn(y_pred, y)
-            # ========================
+
             predictions = torch.argmax(y_pred, dim=1)
             num_correct = (predictions == y).sum().item()
 
@@ -379,7 +303,6 @@ class AETrainer(Trainer):
         x = x.to(self.device)  # Image batch (N,C,H,W)
         y = y.to(self.device)  # Label batch (N,)
 
-        # ====== YOUR CODE: ======
         output = self.model(x)
 
         loss = self.loss_fn(x, output)
@@ -388,7 +311,6 @@ class AETrainer(Trainer):
         loss.backward()
 
         self.optimizer.step()
-        # ========================
 
         return BatchResult(loss.item(), 1 / loss.item())
 
@@ -398,11 +320,8 @@ class AETrainer(Trainer):
 
         with torch.no_grad():
 
-            # ====== YOUR CODE: ======
             output = self.model(x)
-
             loss = self.loss_fn(x, output)
-            # ========================
 
         return BatchResult(loss.item(), 1 / loss.item())
 
@@ -414,7 +333,6 @@ class MnistEncoderCNN(nn.Module):
         self.device = device
         modules = []
 
-        # ====== YOUR CODE: ======
         modules.append(nn.Conv2d(1, 32, kernel_size=3))
         modules.append(nn.BatchNorm2d(32))
         modules.append(nn.PReLU())
@@ -433,7 +351,6 @@ class MnistEncoderCNN(nn.Module):
         modules.append(nn.Flatten())
         modules.append(nn.Linear(in_features=6400, out_features=128, bias=True, device=self.device))
 
-        # ========================
         self.cnn = nn.Sequential(*modules)
 
     def forward(self, x):
@@ -446,8 +363,6 @@ class MnistDecoderCNN(nn.Module):
         self.device = device
         modules = []
 
-
-        # ====== YOUR CODE: ======
         modules.append(nn.Linear(in_features=128, out_features=6400, bias=True, device=self.device))
         modules.append(nn.BatchNorm1d(6400))
         modules.append(nn.PReLU())
@@ -465,57 +380,30 @@ class MnistDecoderCNN(nn.Module):
         modules.append(nn.Dropout(dropout))
 
         modules.append(nn.ConvTranspose2d(32, 1, kernel_size=3))
-        # ========================
 
         self.cnn = nn.Sequential(*modules)
 
     def forward(self, h):
-        # Tanh to scale to [-1, 1] (same dynamic range as original images).
         return torch.tanh(self.cnn(h))
 
 class AE(nn.Module):
     def __init__(self, features_encoder, features_decoder):
-        """
-        :param features_encoder: Instance of an encoder the extracts features
-        from an input.
-        :param features_decoder: Instance of a decoder that reconstructs an
-        input from it's features.
-        """
+
         super().__init__()
         self.features_encoder = features_encoder
         self.features_decoder = features_decoder
 
     def encode(self, x):
 
-        # ====== YOUR CODE: ======
         h = self.features_encoder(x)
-        # ========================
 
         return h
 
     def decode(self, z):
 
-        # ====== YOUR CODE: ======
         h = self.features_decoder(z)
-        # ========================
 
         return h
-
-    def sample(self, n):  # TODO: change
-        samples = []
-        device = next(self.parameters()).device
-        with torch.no_grad():
-
-            # ====== YOUR CODE: ======
-            for _ in range(n):
-                sample = torch.randn(size=(1,self.z_dim), device=device)
-                sample_recon = self.decode(sample)
-                samples.append(sample_recon.squeeze(0))
-            # ========================
-
-        # Detach and move to CPU for display purposes
-        samples = [s.detach().cpu() for s in samples]
-        return samples
 
     def forward(self, x):
         h = self.encode(x)
@@ -527,8 +415,6 @@ class CifarEncoderCNN(nn.Module):
         super().__init__()
         self.device = device
         modules = []
-
-        # ====== YOUR CODE: ======
 
         modules.append(nn.Conv2d(3, 32, kernel_size=3, padding=1))
         modules.append(nn.BatchNorm2d(32))
@@ -554,7 +440,6 @@ class CifarEncoderCNN(nn.Module):
         modules.append(nn.Flatten())
         modules.append(nn.Linear(in_features=16384, out_features=128, bias=True, device=self.device))
 
-        # ========================
         self.cnn = nn.Sequential(*modules)
 
     def forward(self, x):
@@ -566,8 +451,6 @@ class CifarDecoderCNN(nn.Module):
         self.device = device
         modules = []
 
-
-        # ====== YOUR CODE: ======
         modules.append(nn.Linear(in_features=128, out_features=16384, bias=True, device=self.device))
         modules.append(nn.BatchNorm1d(16384))
         modules.append(nn.PReLU())
@@ -590,12 +473,10 @@ class CifarDecoderCNN(nn.Module):
         modules.append(nn.Dropout(dropout))
 
         modules.append(nn.ConvTranspose2d(32, 3, kernel_size=3, padding=1))
-        # ========================
 
         self.cnn = nn.Sequential(*modules)
 
     def forward(self, h):
-        # Tanh to scale to [-1, 1] (same dynamic range as original images).
         return torch.tanh(self.cnn(h))
 
 
@@ -626,11 +507,9 @@ def self_supervised_training(args, train_dl, test_dl, val_dl=None, test_dataset=
     samples = samples.to(args.device)
     reconstructions = ae(samples)
 
-    # Save GPU versions for interpolation
-    samples_gpu = samples.clone()  # Keep a copy on GPU for interpolation
+    samples_gpu = samples.clone() # Save GPU versions for interpolation
 
-    # Move to CPU for visualization
-    samples = samples.detach().cpu()
+    samples = samples.detach().cpu()   # Move to CPU for visualization
     reconstructions = reconstructions.detach().cpu()
 
     fig, axes = plt.subplots(2, num_samples, figsize=(20, 4))
@@ -671,6 +550,8 @@ def self_supervised_training(args, train_dl, test_dl, val_dl=None, test_dataset=
     res, res_best_acc = classifier_trainer.fit(dl_train=train_dl, dl_test=test_dl, dl_val=val_dl, num_epochs=args.epochs, early_stopping=10,
                                     print_every=1, checkpoints=checkpoint_file)
 
+    plot_tsne(encoder_model, test_dl, 'self_supervised_' + "mnist" if args.mnist else "cifar", args.device)
+
     return res_best_acc
 
 def supervised_training(args, train_dl, test_dl, val_dl=None):
@@ -687,13 +568,13 @@ def supervised_training(args, train_dl, test_dl, val_dl=None):
     checkpoint_file = None if args.val else checkpoint_file
     res, res_best_acc = trainer.fit(dl_train=train_dl, dl_test=test_dl, dl_val=val_dl, num_epochs=args.epochs, early_stopping=10, print_every=1,
                           checkpoints=checkpoint_file)
+
+    plot_tsne(encoder_model, test_dl, 'supervised_' + "mnist" if args.mnist else "cifar", args.device)
+
     return res_best_acc
 
 
 class SimCLRTransform:
-    """
-    Returns two augmented views of the same image.
-    """
 
     def __init__(self, size=32):
         self.transform = transforms.Compose([
@@ -705,7 +586,6 @@ class SimCLRTransform:
             transforms.Normalize((0.5,), (0.5,))
         ])
         self.regular_transform = transforms.Compose([transforms.ToTensor()])
-            # transforms.Normalize((0.5,), (0.5,))
 
     def __call__(self, x):
         return [self.transform(x), self.transform(x), self.regular_transform(x)]
@@ -713,12 +593,9 @@ class SimCLRTransform:
 
 class SimCLR(nn.Module):
     def __init__(self, device, hidden_dim=128, is_mnist=False):
-        """
-        hidden_dim: output dimension of the projection head.
-        """
+
         super(SimCLR, self).__init__()
         self.device = device
-        # Load a ResNet18 backbone; remove its final fc layer.
         self.encoder = torchvision.models.resnet50(pretrained=False)
 
         if is_mnist:
@@ -726,8 +603,6 @@ class SimCLR(nn.Module):
 
         self.encoder.fc = nn.Identity()
 
-
-        # Projection head: a 2-layer MLP (with ReLU in between)
         self.projection = nn.Sequential(
             nn.Linear(2048, 4 * hidden_dim, device=self.device),
             nn.ReLU(inplace=True),
@@ -735,39 +610,28 @@ class SimCLR(nn.Module):
         )
 
     def forward(self, x):
-        # x: input image batch
-        h = self.encoder(x)  # Feature extraction
-        z = self.projection(h)  # Projection into latent space
+        h = self.encoder(x)
+        z = self.projection(h)
         return z
 
-
-# -------------------------------
-# NT-Xent Loss Function
-# -------------------------------
 def nt_xent_loss(z_i, z_j, temperature=0.5):
-    """
-    Computes the NT-Xent loss for a batch of projections z_i and z_j.
-    Both inputs should be L2 normalized.
-    """
+
     batch_size = z_i.size(0)
-    # Concatenate both sets along the batch dimension: [2*B, D]
+
     z = torch.cat([z_i, z_j], dim=0)
     z = F.normalize(z, dim=1)
 
     # Compute similarity matrix (cosine similarity)
     similarity_matrix = torch.matmul(z, z.T)
 
-    # Create a mask to filter out self-similarity (diagonal elements)
-    mask = torch.eye(2 * batch_size, device=z.device).bool()
+    mask = torch.eye(2 * batch_size, device=z.device).bool()  # filter out self similarities
     similarity_matrix.masked_fill_(mask, -torch.inf)
 
-    # Positive pairs: the (i, i+B) and (i+B, i) elements
     positives = torch.cat([
         torch.diag(similarity_matrix, batch_size),
         torch.diag(similarity_matrix, -batch_size)
     ])
 
-    # Compute loss for each positive pair
     numerator = torch.exp(positives / temperature)
     denominator = torch.sum(torch.exp(similarity_matrix / temperature), dim=1)
     loss = -torch.log(numerator / denominator)
@@ -783,7 +647,6 @@ class SimCLRTrainer(Trainer):
         x_i = x_i.to(self.device)
         x_j = x_j.to(self.device)
 
-        # ====== YOUR CODE: ======
         z_i = self.model(x_i)
         z_j = self.model(x_j)
 
@@ -791,7 +654,6 @@ class SimCLRTrainer(Trainer):
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
-        # ========================
 
         return BatchResult(loss.item(), 1/loss.item())
 
@@ -801,12 +663,10 @@ class SimCLRTrainer(Trainer):
         x_i = x_i.to(self.device)
         x_j = x_j.to(self.device)
 
-        # ====== YOUR CODE: ======
         z_i = self.model(x_i)
         z_j = self.model(x_j)
 
         loss = self.loss_fn(z_i, z_j)
-        # ========================
 
         return BatchResult(loss.item(), 1/loss.item())
 
@@ -830,6 +690,9 @@ def simclr_training(args, train_dl, test_dl, val_dl=None):
 
     res, res_best_acc = classifier_trainer.fit(dl_train=train_dl, dl_test=test_dl, dl_val=val_dl, num_epochs=args.epochs, early_stopping=10,
                                  print_every=1, checkpoints=classifier_checkpoint_file)
+
+    plot_tsne(simclr, test_dl, 'simclr_' + "mnist" if args.mnist else "cifar", args.device)
+
     return res_best_acc
 
 def tune_hp(args, transform):
@@ -905,14 +768,10 @@ if __name__ == "__main__":
     elif args.mnist:
         transform = transforms.Compose([
             transforms.ToTensor(),
-            # transforms.Normalize((0.5,), (0.5,))
         ])
     else:
         transform = transforms.Compose([
             transforms.ToTensor(),
-            # transforms.Normalize(mean=[0.5, 0.5, 0.5],
-                                 # std=[0.5, 0.5, 0.5])
-            # one possible convenient normalization. You don't have to use it.
 
         ])
 
@@ -923,8 +782,8 @@ if __name__ == "__main__":
         tune_hp(args, transform)
         exit()
 
-    lr_ae = 1e-3
-    lr_cl = 1e-3
+    lr_ae = 0.0002
+    lr_cl = 0.0002
     dropout = 0.2
     batch_size = 128
     temperature = 0.75
