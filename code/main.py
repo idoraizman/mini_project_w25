@@ -39,6 +39,7 @@ def get_args():
                         help='Whether train self-supervised with reconstruction objective, or jointly with classifier for classification objective.')
     parser.add_argument('--simclr', action='store_true', default=False)
     parser.add_argument('--val', action='store_true', default=False)
+    parser.add_argument('--epochs', default=200, type=int, help='Number of epochs to train')
     return parser.parse_args()
 
 class BatchResult(NamedTuple):
@@ -614,7 +615,7 @@ def self_supervised_training(args, train_dl, test_dl, val_dl=None, test_dataset=
     checkpoint_file = 'mnist_ae' if args.mnist else 'cifar_ae'
     checkpoint_file = None if args.val else checkpoint_file
 
-    res, _ = trainer.fit(dl_train=train_dl, dl_test=test_dl, dl_val=val_dl, num_epochs=30, early_stopping=10, print_every=1,
+    res, _ = trainer.fit(dl_train=train_dl, dl_test=test_dl, dl_val=val_dl, num_epochs=args.epochs, early_stopping=10, print_every=1,
                           checkpoints=checkpoint_file)
 
     # Visualization section
@@ -667,7 +668,7 @@ def self_supervised_training(args, train_dl, test_dl, val_dl=None, test_dataset=
     checkpoint_file = "mnist_classifier" if args.mnist else "cifar_classifier"
     checkpoint_file = None if args.val else checkpoint_file
 
-    res, res_best_acc = classifier_trainer.fit(dl_train=train_dl, dl_test=test_dl, dl_val=val_dl, num_epochs=30, early_stopping=10,
+    res, res_best_acc = classifier_trainer.fit(dl_train=train_dl, dl_test=test_dl, dl_val=val_dl, num_epochs=args.epochs, early_stopping=10,
                                     print_every=1, checkpoints=checkpoint_file)
 
     return res_best_acc
@@ -684,7 +685,7 @@ def supervised_training(args, train_dl, test_dl, val_dl=None):
 
     checkpoint_file = 'mnist_classifier_supervised' if args.mnist else 'cifar_classifier_supervised'
     checkpoint_file = None if args.val else checkpoint_file
-    res, res_best_acc = trainer.fit(dl_train=train_dl, dl_test=test_dl, dl_val=val_dl, num_epochs=200, early_stopping=10, print_every=1,
+    res, res_best_acc = trainer.fit(dl_train=train_dl, dl_test=test_dl, dl_val=val_dl, num_epochs=args.epochs, early_stopping=10, print_every=1,
                           checkpoints=checkpoint_file)
     return res_best_acc
 
@@ -816,7 +817,7 @@ def simclr_training(args, train_dl, test_dl, val_dl=None):
     trainer = SimCLRTrainer(model=simclr, loss_fn=loss_fn, optimizer=optimizer, device=args.device)
     checkpoint_file = "simclr_mnist" if args.mnist else "simclr_cifar"
     checkpoint_file = None if args.val else checkpoint_file
-    res, _ = trainer.fit(dl_train=train_dl, dl_test=test_dl, dl_val=val_dl, num_epochs=200, early_stopping=10, print_every=1, checkpoints=checkpoint_file)
+    res, _ = trainer.fit(dl_train=train_dl, dl_test=test_dl, dl_val=val_dl, num_epochs=args.epochs, early_stopping=10, print_every=1, checkpoints=checkpoint_file)
 
     classifier = Classifier(simclr, freeze_encoder=True).to(args.device)
     loss_fn = nn.CrossEntropyLoss()
@@ -827,7 +828,7 @@ def simclr_training(args, train_dl, test_dl, val_dl=None):
     classifier_checkpoint_file = "simclr_mnist_classifier" if args.mnist else "simclr_cifar_classifier"
     classifier_checkpoint_file = None if args.val else classifier_checkpoint_file
 
-    res, res_best_acc = classifier_trainer.fit(dl_train=train_dl, dl_test=test_dl, dl_val=val_dl, num_epochs=200, early_stopping=10,
+    res, res_best_acc = classifier_trainer.fit(dl_train=train_dl, dl_test=test_dl, dl_val=val_dl, num_epochs=args.epochs, early_stopping=10,
                                  print_every=1, checkpoints=classifier_checkpoint_file)
     return res_best_acc
 
@@ -918,6 +919,7 @@ if __name__ == "__main__":
 
     print("Device:", args.device)
     if args.val:
+        args.epochs = 30
         tune_hp(args, transform)
         exit()
 
