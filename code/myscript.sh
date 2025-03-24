@@ -6,4 +6,4 @@ conda activate aes
 echo "hello from $(python --version) in $(which python)"
 
 # Run some arbitrary python
-python3 main.py --epochs 10 --self-supervised
+python3 main.py --simclr --val

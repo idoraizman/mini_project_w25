@@ -29,7 +29,7 @@ def get_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--seed', default=0, type=int, help='Seed for random number generators')
     parser.add_argument('--data-path', default="/datasets/cv_datasets/data", type=str, help='Path to dataset')
-    parser.add_argument('--batch-size', default=64, type=int, help='Size of each batch')
+    parser.add_argument('--batch-size', default=128, type=int, help='Size of each batch')
     parser.add_argument('--latent-dim', default=128, type=int, help='encoding dimension')
     parser.add_argument('--device', default='cuda' if torch.cuda.is_available() else 'cpu', type=str, help='Default device to use')
     parser.add_argument('--mnist', action='store_true', default=False,
@@ -39,6 +39,10 @@ def get_args():
     parser.add_argument('--simclr', action='store_true', default=False)
     parser.add_argument('--val', action='store_true', default=False)
     parser.add_argument('--epochs', default=200, type=int, help='Number of epochs to train')
+    parser.add_argument('--lr-ae', default=0.0002, type=float, help='Learning rate for autoencoder')
+    parser.add_argument('--lr-cl', default=0.002, type=float, help='Learning rate for classifier')
+    parser.add_argument('--dropout', default=0.2, type=float, help='Dropout rate')
+    parser.add_argument('--temperature', default=0.5, type=float, help='Temperature for NT-Xent loss')
     return parser.parse_args()
 
 class BatchResult(NamedTuple):
@@ -698,10 +702,10 @@ def simclr_training(args, train_dl, test_dl, val_dl=None):
 def tune_hp(args, transform):
     best_acc = 0
     best_hp = {}
-    temperatures = [0.5, 1, 2] if args.simclr else [0.5]
+    temperatures = [0.5] if args.simclr else [0.5]
     for temperature in temperatures:
-        for lr_ae in [0.0002]:
-            for lr_cl in [0.002, 0.0002, 0.00002]:
+        for lr_ae in [0.00002, 0.0002, 0.002]:
+            for lr_cl in [0.0002]:
                 for dropout in [0.2]:
                     for batch_size in [128]:
 
