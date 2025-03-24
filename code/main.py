@@ -723,7 +723,6 @@ def tune_hp(args, transform):
                             test_dataset = datasets.CIFAR10(root=args.data_path, train=False, download=True,
                                                             transform=transform)
 
-                        # When you create your dataloader you should split train_dataset or test_dataset to leave some aside for validation
                         val_ratio = 0.1
                         train_size = int((1 - val_ratio) * len(train_dataset))  # 90% train
                         val_size = len(train_dataset) - train_size  # 10% validation
