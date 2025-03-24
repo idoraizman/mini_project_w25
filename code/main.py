@@ -718,7 +718,7 @@ class SimCLR(nn.Module):
         super(SimCLR, self).__init__()
         self.device = device
         # Load a ResNet18 backbone; remove its final fc layer.
-        self.encoder = torchvision.models.resnet18(pretrained=False)
+        self.encoder = torchvision.models.resnet50(pretrained=False)
 
         if is_mnist:
             self.encoder.conv1 = nn.Conv2d(1, 64, kernel_size=7, stride=2, padding=3, bias=False)
@@ -728,7 +728,7 @@ class SimCLR(nn.Module):
 
         # Projection head: a 2-layer MLP (with ReLU in between)
         self.projection = nn.Sequential(
-            nn.Linear(512, 4 * hidden_dim, device=self.device),
+            nn.Linear(2048, 4 * hidden_dim, device=self.device),
             nn.ReLU(inplace=True),
             nn.Linear(4 * hidden_dim, hidden_dim, device=self.device),
         )
@@ -836,8 +836,8 @@ def tune_hp(args, transform):
     best_hp = {}
     temperatures = [0.5, 1, 2] if args.simclr else [0.5]
     for temperature in temperatures:
-        for lr_ae in np.logspace(-6, -1, 3):
-            for lr_cl in np.logspace(-6, -1, 3):
+        for lr_ae in np.logspace(-5, -2.5, 3):
+            for lr_cl in np.logspace(-5, -2.5, 3):
                 for dropout in [0.2]:
                     for batch_size in [64]:
 
