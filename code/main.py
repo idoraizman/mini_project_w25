@@ -497,11 +497,11 @@ def self_supervised_training(args, train_dl, test_dl, val_dl=None, test_dataset=
 
     trainer = AETrainer(model=ae, loss_fn=loss_fn, optimizer=optimizer, device=args.device)
 
-    checkpoint_file = 'mnist_ae' if args.mnist else 'cifar_ae'
-    checkpoint_file = None if args.val else checkpoint_file
+    checkpoint_file_ae = 'mnist_ae' if args.mnist else 'cifar_ae'
+    # checkpoint_file = None if args.val else checkpoint_file
 
     res, _ = trainer.fit(dl_train=train_dl, dl_test=test_dl, dl_val=val_dl, num_epochs=args.epochs, early_stopping=10, print_every=1,
-                          checkpoints=checkpoint_file)
+                          checkpoints=checkpoint_file_ae)
 
     # Visualization section
     num_samples = 5
@@ -556,7 +556,7 @@ def self_supervised_training(args, train_dl, test_dl, val_dl=None, test_dataset=
 
     plot_tsne(encoder_model, test_dl, 'self_supervised_' + "mnist" if args.mnist else "cifar", args.device)
 
-    return res_best_acc
+    return res_best_acc, checkpoint_file_ae
 
 def supervised_training(args, train_dl, test_dl, val_dl=None):
     encoder_model = MnistEncoderCNN(device=args.device, dropout=args.dropout).to(args.device) if args.mnist else CifarEncoderCNN(
@@ -575,7 +575,7 @@ def supervised_training(args, train_dl, test_dl, val_dl=None):
 
     plot_tsne(encoder_model, test_dl, 'supervised_' + "mnist" if args.mnist else "cifar", args.device)
 
-    return res_best_acc
+    return res_best_acc, None
 
 
 class SimCLRTransform:
@@ -679,9 +679,9 @@ def simclr_training(args, train_dl, test_dl, val_dl=None):
     loss_fn = get_nt_xent_loss(args.temperature)
     optimizer = torch.optim.Adam(simclr.parameters(), lr=args.lr_ae, betas=(0.9, 0.999))
     trainer = SimCLRTrainer(model=simclr, loss_fn=loss_fn, optimizer=optimizer, device=args.device)
-    checkpoint_file = "simclr_mnist" if args.mnist else "simclr_cifar"
-    checkpoint_file = None if args.val else checkpoint_file
-    res, _ = trainer.fit(dl_train=train_dl, dl_test=test_dl, dl_val=val_dl, num_epochs=args.epochs, early_stopping=10, print_every=1, checkpoints=checkpoint_file)
+    checkpoint_file_simclr = "simclr_mnist" if args.mnist else "simclr_cifar"
+    # checkpoint_file = None if args.val else checkpoint_file
+    res, _ = trainer.fit(dl_train=train_dl, dl_test=test_dl, dl_val=val_dl, num_epochs=args.epochs, early_stopping=10, print_every=1, checkpoints=checkpoint_file_simclr)
 
     classifier = Classifier(simclr, freeze_encoder=True).to(args.device)
     loss_fn = nn.CrossEntropyLoss()
@@ -697,15 +697,16 @@ def simclr_training(args, train_dl, test_dl, val_dl=None):
 
     plot_tsne(simclr, test_dl, 'simclr_' + "mnist" if args.mnist else "cifar", args.device)
 
-    return res_best_acc
+    return res_best_acc, checkpoint_file_simclr
 
 def tune_hp(args, transform):
     best_acc = 0
     best_hp = {}
     temperatures = [0.5] if args.simclr else [0.5]
     for temperature in temperatures:
-        for lr_ae in [0.0001]:
-            for lr_cl in [0.0001, 0.00001, 0.000001]:
+        for lr_ae in [0.0001, 0.00001, 0.000001]:
+            checkpoint_ae = None
+            for lr_cl in [0.0001]:
                 for dropout in [0.2]:
                     for batch_size in [128]:
 
@@ -744,16 +745,18 @@ def tune_hp(args, transform):
                         )
 
                         if args.simclr:
-                            cur_best_acc = simclr_training(args, train_dl, test_dl, val_dl)
+                            cur_best_acc, checkpoint_ae = simclr_training(args, train_dl, test_dl, val_dl)
                         elif args.self_supervised:
-                            cur_best_acc = self_supervised_training(args, train_dl, test_dl, val_dl, test_dataset)
+                            cur_best_acc, checkpoint_ae = self_supervised_training(args, train_dl, test_dl, val_dl, test_dataset)
                         else:
-                            cur_best_acc = supervised_training(args, train_dl, test_dl, val_dl)
+                            cur_best_acc, checkpoint_ae = supervised_training(args, train_dl, test_dl, val_dl)
 
                         if cur_best_acc > best_acc:
                             best_acc = cur_best_acc
                             best_hp = {"lr_ae": lr_ae, "lr_cl": lr_cl, "dropout": dropout, "batch_size": batch_size, "temperature": temperature}
                         print("Current hyper parameters best accuracy: ", cur_best_acc, flush=True)
+            if checkpoint_ae is not None:
+                os.remove(checkpoint_ae + '.pt')
     print("Best hyperparameters:", best_hp, flush=True)
     print("Best accuracy:", best_acc, flush=True)
     return best_hp
@@ -781,7 +784,7 @@ if __name__ == "__main__":
 
     print("Device:", args.device)
     if args.val:
-        args.epochs = 200
+        args.epochs = 100
         tune_hp(args, transform)
         exit()
 
@@ -817,11 +820,11 @@ if __name__ == "__main__":
     )
 
     if args.simclr:
-        res = simclr_training(args, train_dl, test_dl)
+        res, _ = simclr_training(args, train_dl, test_dl)
     elif args.self_supervised:
-        res = self_supervised_training(args, train_dl, test_dl, test_dataset=test_dataset)
+        res, _ = self_supervised_training(args, train_dl, test_dl, test_dataset=test_dataset)
     else:
-        res = supervised_training(args, train_dl, test_dl, train_dataset)
+        res, _ = supervised_training(args, train_dl, test_dl, train_dataset)
 
     print("Best accuracy:", res, flush=True)
 
