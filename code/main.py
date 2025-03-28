@@ -695,7 +695,7 @@ def simclr_training(args, train_dl, test_dl, val_dl=None):
     res, res_best_acc = classifier_trainer.fit(dl_train=train_dl, dl_test=test_dl, dl_val=val_dl, num_epochs=args.epochs, early_stopping=10,
                                  print_every=1, checkpoints=classifier_checkpoint_file)
 
-    plot_tsne(simclr, test_dl, 'simclr_' + "mnist" if args.mnist else "cifar", args.device)
+    plot_tsne(simclr, test_dl, 'simclr_' + ("mnist" if args.mnist else "cifar"), args.device)
 
     return res_best_acc, checkpoint_file_simclr
 
@@ -704,9 +704,9 @@ def tune_hp(args, transform):
     best_hp = {}
     temperatures = [0.5] if args.simclr else [0.5]
     for temperature in temperatures:
-        for lr_ae in [0.00005, 0.00001, 0.00003]:
+        for lr_ae in [0.00001, 0.000015, 0.00002]:
             checkpoint_ae = None
-            for lr_cl in [0.00005]:
+            for lr_cl in [0.00004]:
                 for dropout in [0.2]:
                     for batch_size in [128]:
 
@@ -784,7 +784,7 @@ if __name__ == "__main__":
 
     print("Device:", args.device)
     if args.val:
-        args.epochs = 100
+        args.epochs = 200
         tune_hp(args, transform)
         exit()
 
