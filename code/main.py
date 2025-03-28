@@ -695,7 +695,7 @@ def simclr_training(args, train_dl, test_dl, val_dl=None):
     res, res_best_acc = classifier_trainer.fit(dl_train=train_dl, dl_test=test_dl, dl_val=val_dl, num_epochs=args.epochs, early_stopping=10,
                                  print_every=1, checkpoints=classifier_checkpoint_file)
 
-    plot_tsne(simclr, test_dl, 'simclr_' + ("mnist" if args.mnist else "cifar"), args.device, simclr=true)
+    plot_tsne(simclr, test_dl, 'simclr_' + ("mnist" if args.mnist else "cifar"), args.device, simclr=True)
 
     return res_best_acc, checkpoint_file_simclr
 
@@ -735,13 +735,13 @@ def tune_hp(args, transform):
                         # Perform the split
                         train_dataset, val_dataset = random_split(train_dataset, [train_size, val_size])
                         train_dl = torch.utils.data.DataLoader(
-                            train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=4
+                            train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=6
                         )
                         val_dl = torch.utils.data.DataLoader(
-                            val_dataset, batch_size=args.batch_size, shuffle=True, num_workers=4
+                            val_dataset, batch_size=args.batch_size, shuffle=True, num_workers=6
                         )
                         test_dl = torch.utils.data.DataLoader(
-                            test_dataset, batch_size=args.batch_size, shuffle=True, num_workers=4
+                            test_dataset, batch_size=args.batch_size, shuffle=True, num_workers=6
                         )
 
                         if args.simclr:
@@ -813,10 +813,10 @@ if __name__ == "__main__":
 
     # Perform the split
     train_dl = torch.utils.data.DataLoader(
-        train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=1
+        train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=4
     )
     test_dl = torch.utils.data.DataLoader(
-        test_dataset, batch_size=args.batch_size, shuffle=True, num_workers=1
+        test_dataset, batch_size=args.batch_size, shuffle=True, num_workers=4
     )
 
     if args.simclr:
