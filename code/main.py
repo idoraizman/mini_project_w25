@@ -708,7 +708,7 @@ def tune_hp(args, transform):
             checkpoint_ae = None
             for lr_cl in [0.00004]:
                 for dropout in [0.2]:
-                    for batch_size in [512] if args.simclr else [128]:
+                    for batch_size in [128]:
 
                         args.lr_ae = lr_ae
                         args.lr_cl = lr_cl
@@ -784,7 +784,7 @@ if __name__ == "__main__":
 
     print("Device:", args.device)
     if args.val:
-        args.epochs = 2
+        args.epochs = 200
         tune_hp(args, transform)
         exit()
 
