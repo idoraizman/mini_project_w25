@@ -704,7 +704,7 @@ def tune_hp(args, transform):
     best_hp = {}
     temperatures = [0.5] if args.simclr else [0.5]
     for temperature in temperatures:
-        for lr_ae in [0.00001, 0.000015, 0.00002]:
+        for lr_ae in [0.0001, 0.00001, 0.000001]:
             checkpoint_ae = None
             for lr_cl in [0.00004]:
                 for dropout in [0.2]:
@@ -784,7 +784,7 @@ if __name__ == "__main__":
 
     print("Device:", args.device)
     if args.val:
-        args.epochs = 200
+        args.epochs = 100
         tune_hp(args, transform)
         exit()
 
