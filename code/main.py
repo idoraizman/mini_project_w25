@@ -822,7 +822,7 @@ if __name__ == "__main__":
     elif args.self_supervised:
         res = self_supervised_training(args, train_dl, test_dl, test_dataset=test_dataset)
     else:
-        res = supervised_training(args, train_dl, test_dl, train_dataset)
+        res = supervised_training(args, train_dl, test_dl)
 
     print("Best accuracy:", res, flush=True)
 
