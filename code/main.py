@@ -784,7 +784,7 @@ if __name__ == "__main__":
 
     print("Device:", args.device)
     if args.val:
-        args.epochs = 200
+        args.epochs = 2
         tune_hp(args, transform)
         exit()
 
