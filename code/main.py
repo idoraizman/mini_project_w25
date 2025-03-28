@@ -704,9 +704,9 @@ def tune_hp(args, transform):
     best_hp = {}
     temperatures = [0.5] if args.simclr else [0.5]
     for temperature in temperatures:
-        for lr_ae in [0.0001, 0.00001, 0.000001]:
+        for lr_ae in [0.00001]:
             checkpoint_ae = None
-            for lr_cl in [0.00004]:
+            for lr_cl in [0.001, 0.0001, 0.00005, 0.00001]:
                 for dropout in [0.2]:
                     for batch_size in [128]:
 
@@ -735,13 +735,13 @@ def tune_hp(args, transform):
                         # Perform the split
                         train_dataset, val_dataset = random_split(train_dataset, [train_size, val_size])
                         train_dl = torch.utils.data.DataLoader(
-                            train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=6
+                            train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=2
                         )
                         val_dl = torch.utils.data.DataLoader(
-                            val_dataset, batch_size=args.batch_size, shuffle=True, num_workers=6
+                            val_dataset, batch_size=args.batch_size, shuffle=True, num_workers=2
                         )
                         test_dl = torch.utils.data.DataLoader(
-                            test_dataset, batch_size=args.batch_size, shuffle=True, num_workers=6
+                            test_dataset, batch_size=args.batch_size, shuffle=True, num_workers=2
                         )
 
                         if args.simclr:
@@ -784,7 +784,7 @@ if __name__ == "__main__":
 
     print("Device:", args.device)
     if args.val:
-        args.epochs = 100
+        args.epochs = 200
         tune_hp(args, transform)
         exit()
 
@@ -813,10 +813,10 @@ if __name__ == "__main__":
 
     # Perform the split
     train_dl = torch.utils.data.DataLoader(
-        train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=4
+        train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=2
     )
     test_dl = torch.utils.data.DataLoader(
-        test_dataset, batch_size=args.batch_size, shuffle=True, num_workers=4
+        test_dataset, batch_size=args.batch_size, shuffle=True, num_workers=2
     )
 
     if args.simclr:
