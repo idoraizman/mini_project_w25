@@ -735,13 +735,13 @@ def tune_hp(args, transform):
                         # Perform the split
                         train_dataset, val_dataset = random_split(train_dataset, [train_size, val_size])
                         train_dl = torch.utils.data.DataLoader(
-                            train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=1
+                            train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=4
                         )
                         val_dl = torch.utils.data.DataLoader(
-                            val_dataset, batch_size=args.batch_size, shuffle=True, num_workers=1
+                            val_dataset, batch_size=args.batch_size, shuffle=True, num_workers=4
                         )
                         test_dl = torch.utils.data.DataLoader(
-                            test_dataset, batch_size=args.batch_size, shuffle=True, num_workers=1
+                            test_dataset, batch_size=args.batch_size, shuffle=True, num_workers=4
                         )
 
                         if args.simclr:
