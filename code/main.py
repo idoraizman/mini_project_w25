@@ -570,7 +570,8 @@ def supervised_training(args, train_dl, test_dl, val_dl=None):
 
     checkpoint_file = 'mnist_classifier_supervised' if args.mnist else 'cifar_classifier_supervised'
     checkpoint_file = None if args.val else checkpoint_file
-    res, res_best_acc = trainer.fit(dl_train=train_dl, dl_test=test_dl, dl_val=val_dl, num_epochs=args.epochs, early_stopping=10, print_every=1,
+    early_stopping = 5 if args.val else 10
+    res, res_best_acc = trainer.fit(dl_train=train_dl, dl_test=test_dl, dl_val=val_dl, num_epochs=args.epochs, early_stopping=early_stopping, print_every=1,
                           checkpoints=checkpoint_file)
 
     plot_tsne(encoder_model, test_dl, 'supervised_' + "mnist" if args.mnist else "cifar", args.device)
@@ -705,7 +706,7 @@ def tune_hp(args, transform):
     temperatures = [0.5] if args.simclr else [0.5]
     for temperature in temperatures:
         for lr_ae in [0.0002]:
-            for lr_cl in [0.00002, 0.0002, 0.002, 0.02]:
+            for lr_cl in [0.0008, 0.002, 0.005]:
                 for dropout in [0.2]:
                     for batch_size in [64]:
 
