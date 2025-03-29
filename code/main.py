@@ -705,7 +705,7 @@ def tune_hp(args, transform):
     best_hp = {}
     temperatures = [0.5] if args.simclr else [0.5]
     for temperature in temperatures:
-        for lr_ae in [0.00005]:
+        for lr_ae in [0.00008]:
             checkpoint_ae = None
             for lr_cl in [0.00005, 0.00008, 0.0002, 0.0005, 0.0008, 0.002]:
                 for dropout in [0.2]:
