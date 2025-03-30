@@ -554,7 +554,7 @@ def self_supervised_training(args, train_dl, test_dl, val_dl=None, test_dataset=
     res, res_best_acc = classifier_trainer.fit(dl_train=train_dl, dl_test=test_dl, dl_val=val_dl, num_epochs=args.epochs, early_stopping=10,
                                     print_every=1, checkpoints=checkpoint_file)
 
-    plot_tsne(encoder_model, test_dl, 'self_supervised_' + "mnist" if args.mnist else "cifar", args.device)
+    plot_tsne(encoder_model, test_dl, 'self_supervised_' + "mnist" if args.mnist else "cifar", False, args.device)
 
     return res_best_acc, checkpoint_file_ae
 
@@ -573,7 +573,7 @@ def supervised_training(args, train_dl, test_dl, val_dl=None):
     res, res_best_acc = trainer.fit(dl_train=train_dl, dl_test=test_dl, dl_val=val_dl, num_epochs=args.epochs, early_stopping=10, print_every=1,
                           checkpoints=checkpoint_file)
 
-    plot_tsne(encoder_model, test_dl, 'supervised_' + "mnist" if args.mnist else "cifar", args.device)
+    plot_tsne(encoder_model, test_dl, 'supervised_' + "mnist" if args.mnist else "cifar", False, args.device)
 
     return res_best_acc, None
 
@@ -696,7 +696,7 @@ def simclr_training(args, train_dl, test_dl, val_dl=None):
                                  print_every=1, checkpoints=classifier_checkpoint_file)
 
     if args.val == None:
-        plot_tsne(simclr, test_dl, 'simclr_' + "mnist" if args.mnist else "cifar", args.device)
+        plot_tsne(simclr, test_dl, 'simclr_' + "mnist" if args.mnist else "cifar", True, args.device)
 
     return res_best_acc, checkpoint_file_simclr
 
@@ -709,7 +709,7 @@ def tune_hp(args, transform):
             checkpoint_ae = None
             for lr_cl in [0.0002]:
                 for dropout in [0.2]:
-                    for batch_size in [64, 128, 256]:
+                    for batch_size in [64]:
 
                         args.lr_ae = lr_ae
                         args.lr_cl = lr_cl
@@ -789,10 +789,10 @@ if __name__ == "__main__":
         tune_hp(args, transform)
         exit()
 
-    lr_ae = 0.0002
-    lr_cl = 0.002
+    lr_ae = 0.00001
+    lr_cl = 0.00005
     dropout = 0.2
-    batch_size = 64
+    batch_size = 128
     temperature = 0.75
 
     args.lr_ae = lr_ae

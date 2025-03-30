@@ -3,7 +3,7 @@ import numpy as np
 from sklearn.manifold import TSNE
 import matplotlib.pyplot as plt
 
-def plot_tsne(model, dataloader, name, device):
+def plot_tsne(model, dataloader, name, simclr, device):
     '''
     model - torch.nn.Module subclass. This is your encoder model
     dataloader - test dataloader to over over data for which you wish to compute projections
@@ -18,6 +18,8 @@ def plot_tsne(model, dataloader, name, device):
     with torch.no_grad():
         for data in dataloader:
             images, labels = data
+            if simclr:
+                images = images[2]
             images, labels = images.to(device), labels.to(device)
             
             #approximate the latent space from data
