@@ -706,7 +706,7 @@ def tune_hp(args, transform):
     temperatures = [0.5] if args.simclr else [0.5]
     for temperature in temperatures:
         for lr_ae in [0.00008]:
-            #checkpoint_ae = None
+            checkpoint_ae = None
             for lr_cl in [0.0002]:
                 for dropout in [0.2]:
                     for batch_size in [64, 128, 256]:
