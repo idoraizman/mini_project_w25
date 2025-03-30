@@ -703,7 +703,7 @@ def simclr_training(args, train_dl, test_dl, val_dl=None):
 def tune_hp(args, transform):
     best_acc = 0
     best_hp = {}
-    temperatures = [0.01, 0.05] if args.simclr else [0.5]
+    temperatures = [0.05, 0.15] if args.simclr else [0.5]
     for temperature in temperatures:
         for lr_ae in [0.00008]:
             checkpoint_ae = None
