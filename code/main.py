@@ -696,7 +696,7 @@ def simclr_training(args, train_dl, test_dl, val_dl=None):
                                  print_every=1, checkpoints=classifier_checkpoint_file)
 
     if args.val == None:
-        plot_tsne(simclr, test_dl, 'simclr_' + "mnist" if args.mnist else "cifar", True, args.device)
+        plot_tsne(simclr, test_dl, 'simclr_' + ("mnist" if args.mnist else "cifar"), True, args.device)
 
     return res_best_acc, checkpoint_file_simclr
 
