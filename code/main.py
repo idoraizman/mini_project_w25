@@ -790,9 +790,9 @@ if __name__ == "__main__":
         exit()
 
     lr_ae = 0.00001
-    lr_cl = 0.00005
+    lr_cl = 0.0008
     dropout = 0.2
-    batch_size = 128
+    batch_size = 64
     temperature = 0.15
 
     args.lr_ae = lr_ae
