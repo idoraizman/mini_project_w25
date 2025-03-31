@@ -554,7 +554,7 @@ def self_supervised_training(args, train_dl, test_dl, val_dl=None, test_dataset=
     res, res_best_acc = classifier_trainer.fit(dl_train=train_dl, dl_test=test_dl, dl_val=val_dl, num_epochs=args.epochs, early_stopping=10,
                                     print_every=1, checkpoints=checkpoint_file)
 
-    plot_tsne(encoder_model, test_dl, 'self_supervised_' + "mnist" if args.mnist else "cifar", False, args.device)
+    plot_tsne(encoder_model, test_dl, 'self_supervised_' + ("mnist" if args.mnist else "cifar"), False, args.device)
 
     return res_best_acc, checkpoint_file_ae
 
@@ -573,7 +573,7 @@ def supervised_training(args, train_dl, test_dl, val_dl=None):
     res, res_best_acc = trainer.fit(dl_train=train_dl, dl_test=test_dl, dl_val=val_dl, num_epochs=args.epochs, early_stopping=10, print_every=1,
                           checkpoints=checkpoint_file)
 
-    plot_tsne(encoder_model, test_dl, 'supervised_' + "mnist" if args.mnist else "cifar", False, args.device)
+    plot_tsne(encoder_model, test_dl, 'supervised_' + ("mnist" if args.mnist else "cifar"), False, args.device)
 
     return res_best_acc, None
 
@@ -704,7 +704,7 @@ def tune_hp(args, transform):
     best_acc = 0
     best_hp = {}
     temperatures = [0.1] if args.simclr else [0.1]
-    for temperature in temperatures:
+    for temperature in temperatures: # update hyper parameters values when necessary
         for lr_ae in [0.00008]:
             checkpoint_ae = None
             for lr_cl in [0.0002]:
@@ -782,24 +782,10 @@ if __name__ == "__main__":
 
         ])
 
-
     print("Device:", args.device)
     if args.val:
-        args.epochs = 100
         tune_hp(args, transform)
         exit()
-
-    lr_ae = 0.00001
-    lr_cl = 0.0008
-    dropout = 0.2
-    batch_size = 64
-    temperature = 0.15
-
-    args.lr_ae = lr_ae
-    args.lr_cl = lr_cl
-    args.dropout = dropout
-    args.batch_size = batch_size
-    args.temperature = temperature
 
     if args.mnist:
         train_dataset = datasets.MNIST(root=args.data_path, train=True, download=False,
