@@ -3,7 +3,6 @@ import abc
 import torch.nn as nn
 import torch
 import torchvision
-from torch.optim.lr_scheduler import MultiStepLR
 from torchvision import datasets, transforms
 from torch.utils.data import random_split, DataLoader
 
@@ -495,9 +494,8 @@ def self_supervised_training(args, train_dl, test_dl, val_dl=None, test_dataset=
 
     loss_fn = nn.L1Loss()
     optimizer = torch.optim.Adam(ae.parameters(), lr=args.lr_ae, betas=(0.9, 0.999))
-    schedualer = MultiStepLR(optimizer, milestones=[50, 100, 150], gamma=0.1)
 
-    trainer = AETrainer(model=ae, loss_fn=loss_fn, optimizer=schedualer, device=args.device)
+    trainer = AETrainer(model=ae, loss_fn=loss_fn, optimizer=optimizer, device=args.device)
 
     checkpoint_file_ae = 'mnist_ae' if args.mnist else 'cifar_ae'
     # checkpoint_file = None if args.val else checkpoint_file
@@ -547,8 +545,7 @@ def self_supervised_training(args, train_dl, test_dl, val_dl=None, test_dataset=
     classifier = Classifier(encoder_model).to(args.device)
     loss_fn = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(classifier.classifier.parameters(), lr=args.lr_cl, betas=(0.9, 0.999))
-    schedualer = MultiStepLR(optimizer, milestones=[50, 100, 150], gamma=0.1)
-    classifier_trainer = ClassifierTrainer(model=classifier, loss_fn=loss_fn, optimizer=schedualer,
+    classifier_trainer = ClassifierTrainer(model=classifier, loss_fn=loss_fn, optimizer=optimizer,
                                            device=args.device, is_simclr=False)
 
     checkpoint_file = "mnist_classifier" if args.mnist else "cifar_classifier"
@@ -739,13 +736,13 @@ def tune_hp(args, transform):
                         # Perform the split
                         train_dataset, val_dataset = random_split(train_dataset, [train_size, val_size])
                         train_dl = torch.utils.data.DataLoader(
-                            train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=1
+                            train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=2
                         )
                         val_dl = torch.utils.data.DataLoader(
-                            val_dataset, batch_size=args.batch_size, shuffle=True, num_workers=1
+                            val_dataset, batch_size=args.batch_size, shuffle=True, num_workers=2
                         )
                         test_dl = torch.utils.data.DataLoader(
-                            test_dataset, batch_size=args.batch_size, shuffle=True, num_workers=1
+                            test_dataset, batch_size=args.batch_size, shuffle=True, num_workers=2
                         )
 
                         if args.simclr:
@@ -817,10 +814,10 @@ if __name__ == "__main__":
 
     # Perform the split
     train_dl = torch.utils.data.DataLoader(
-        train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=1
+        train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=2
     )
     test_dl = torch.utils.data.DataLoader(
-        test_dataset, batch_size=args.batch_size, shuffle=True, num_workers=1
+        test_dataset, batch_size=args.batch_size, shuffle=True, num_workers=2
     )
 
     if args.simclr:
