@@ -789,10 +789,10 @@ if __name__ == "__main__":
         tune_hp(args, transform)
         exit()
 
-    lr_ae = 0.00008
-    lr_cl = 0.0002
+    lr_ae = 0.00001
+    lr_cl = 0.00005
     dropout = 0.2
-    batch_size = 64
+    batch_size = 128
     temperature = 0.15
 
     args.lr_ae = lr_ae
