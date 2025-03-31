@@ -545,6 +545,7 @@ def self_supervised_training(args, train_dl, test_dl, val_dl=None, test_dataset=
     classifier = Classifier(encoder_model).to(args.device)
     loss_fn = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(classifier.classifier.parameters(), lr=args.lr_cl, betas=(0.9, 0.999))
+
     classifier_trainer = ClassifierTrainer(model=classifier, loss_fn=loss_fn, optimizer=optimizer,
                                            device=args.device, is_simclr=False)
 
@@ -554,7 +555,7 @@ def self_supervised_training(args, train_dl, test_dl, val_dl=None, test_dataset=
     res, res_best_acc = classifier_trainer.fit(dl_train=train_dl, dl_test=test_dl, dl_val=val_dl, num_epochs=args.epochs, early_stopping=10,
                                     print_every=1, checkpoints=checkpoint_file)
     if not args.val:
-        plot_tsne(encoder_model, test_dl, 'self_supervised_' + "mnist" if args.mnist else "cifar", args.device)
+        plot_tsne(encoder_model, test_dl, 'self_supervised_' + ("mnist" if args.mnist else "cifar"), args.device)
 
     return res_best_acc, checkpoint_file_ae
 
@@ -574,7 +575,7 @@ def supervised_training(args, train_dl, test_dl, val_dl=None):
                           checkpoints=checkpoint_file)
 
     if not args.val:
-        plot_tsne(encoder_model, test_dl, 'supervised_' + "mnist" if args.mnist else "cifar", args.device)
+        plot_tsne(encoder_model, test_dl, 'supervised_' + ("mnist" if args.mnist else "cifar"), args.device)
 
     return res_best_acc, None
 
