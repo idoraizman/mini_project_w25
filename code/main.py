@@ -3,6 +3,7 @@ import abc
 import torch.nn as nn
 import torch
 import torchvision
+from torch.optim.lr_scheduler import MultiStepLR
 from torchvision import datasets, transforms
 from torch.utils.data import random_split, DataLoader
 
@@ -494,8 +495,9 @@ def self_supervised_training(args, train_dl, test_dl, val_dl=None, test_dataset=
 
     loss_fn = nn.L1Loss()
     optimizer = torch.optim.Adam(ae.parameters(), lr=args.lr_ae, betas=(0.9, 0.999))
+    schedualer = MultiStepLR(optimizer, milestones=[50, 100, 150], gamma=0.1)
 
-    trainer = AETrainer(model=ae, loss_fn=loss_fn, optimizer=optimizer, device=args.device)
+    trainer = AETrainer(model=ae, loss_fn=loss_fn, optimizer=schedualer, device=args.device)
 
     checkpoint_file_ae = 'mnist_ae' if args.mnist else 'cifar_ae'
     # checkpoint_file = None if args.val else checkpoint_file
@@ -545,7 +547,8 @@ def self_supervised_training(args, train_dl, test_dl, val_dl=None, test_dataset=
     classifier = Classifier(encoder_model).to(args.device)
     loss_fn = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(classifier.classifier.parameters(), lr=args.lr_cl, betas=(0.9, 0.999))
-    classifier_trainer = ClassifierTrainer(model=classifier, loss_fn=loss_fn, optimizer=optimizer,
+    schedualer = MultiStepLR(optimizer, milestones=[50, 100, 150], gamma=0.1)
+    classifier_trainer = ClassifierTrainer(model=classifier, loss_fn=loss_fn, optimizer=schedualer,
                                            device=args.device, is_simclr=False)
 
     checkpoint_file = "mnist_classifier" if args.mnist else "cifar_classifier"
